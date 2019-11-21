@@ -1,0 +1,6 @@
+__pycache__
+/.vscode
+/build
+/dist
+nanome_url_loader.egg-info
+nanome
