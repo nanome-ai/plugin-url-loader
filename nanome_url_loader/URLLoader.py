@@ -67,7 +67,7 @@ class URLLoader(nanome.PluginInstance):
         for ln_btn in self.__type_selector.get_children():
             btn = ln_btn.get_content()
             btn.selected = btn.text.value.idle == self.__filetype
-            
+
         if update: self.update_menu(self.__menu)
         print(f'file type is now {self.__filetype}')
 
@@ -91,13 +91,13 @@ class URLLoader(nanome.PluginInstance):
             # Create a text input for each field
             ln = self.__field_container.create_child_node(field_name)
             ln.layout_orientation = nanome.util.enums.LayoutTypes.horizontal
-            ln.forward_dist = 0.02
             ln.set_padding(top=0.02 if first else 0.01, down=0.02 if last else 0.01, left=0.01, right=0.01)
             
             ln_label = ln.create_child_node()
             label = ln_label.add_new_label(field_name+':')
             label.text_vertical_align = nanome.util.enums.VertAlignOptions.Middle
             ln_field = ln.create_child_node()
+            ln_field.forward_dist = 0.02
             ln_field.set_padding(top=0.02 if first else 0.01, down=0.02 if last else 0.01, left=0.01, right=0.01)
             input_field = ln_field.add_new_text_input()
             input_field.placeholder_text = ""
