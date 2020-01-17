@@ -53,3 +53,6 @@ class Settings():
       print(f'updated input text to {text_input.input_text}')
       self.load_url = text_input.input_text
       self.__plugin.set_field_names(re.findall('{{(.*?)}}', self.load_url))
+
+  def set_extension(self, ext):
+    self.load_url = re.sub('\.(cif|pdb|sdf)', f'.{ext}', self.load_url)

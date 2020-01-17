@@ -17,6 +17,7 @@ from .Settings import Settings
 
 DEFAULT_URL = "https://files.rcsb.org/download/{{MoleculeCode}}.cif" # {{NAME}} indicates where to write molecule code
 FILETYPE = "MMCIF" # PDB / SDF / MMCIF
+EXTENSIONS = {"MMCIF": 'cif', "PDB": 'pdb', "SDF": 'sdf'}
 
 ##################
 ##################
@@ -61,9 +62,12 @@ class URLLoader(nanome.PluginInstance):
 
     def set_file_type(self, filetype, update=False, button=None):
         self.__filetype = filetype
+        self.__settings.set_extension(EXTENSIONS[filetype])
+
         for ln_btn in self.__type_selector.get_children():
             btn = ln_btn.get_content()
             btn.selected = btn.text.value.idle == self.__filetype
+            
         if update: self.update_menu(self.__menu)
         print(f'file type is now {self.__filetype}')
 
