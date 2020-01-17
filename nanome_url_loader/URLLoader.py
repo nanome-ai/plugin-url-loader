@@ -16,7 +16,7 @@ from .Settings import Settings
 ##################
 
 DEFAULT_URL = "https://files.rcsb.org/download/{{MoleculeCode}}.cif" # {{NAME}} indicates where to write molecule code
-FILETYPE = "MMCIF" # PDB / SDF / MMCIF
+FILETYPE = "PDB" # PDB / SDF / MMCIF
 EXTENSIONS = {"MMCIF": 'cif', "PDB": 'pdb', "SDF": 'sdf'}
 
 ##################
@@ -92,7 +92,7 @@ class URLLoader(nanome.PluginInstance):
             ln = self.__field_container.create_child_node(field_name)
             ln.layout_orientation = nanome.util.enums.LayoutTypes.horizontal
             ln.set_padding(top=0.02 if first else 0.01, down=0.02 if last else 0.01, left=0.01, right=0.01)
-            
+
             ln_label = ln.create_child_node()
             label = ln_label.add_new_label(field_name+':')
             label.text_vertical_align = nanome.util.enums.VertAlignOptions.Middle
@@ -104,7 +104,7 @@ class URLLoader(nanome.PluginInstance):
             input_field.register_changed_callback(partial(self.field_changed, field_index))
             self.__fields.append(input_field)
         if update: self.update_menu(self.__menu)
-        
+
     def field_changed(self, field_index, text_input):
         text_input.input_text = re.sub('([^0-9A-z-._~])', '', text_input.input_text)
         self.__field_values[field_index] = text_input.input_text
@@ -113,11 +113,15 @@ class URLLoader(nanome.PluginInstance):
         if self._loading == True:
             return
         self._loading = True
+        button.text.value.set_all("Loading...")
+        button.unusable = True
+
         for i, field_value in enumerate(self.__field_values):
             if field_value == '':
                 self.__plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"Please set a value for {self.__field_names[i]}")
                 return
 
+        self.update_menu(self.__menu)
         self.load_molecule()
 
     def load_molecule(self):
@@ -146,6 +150,10 @@ class URLLoader(nanome.PluginInstance):
             self._loading = False
             Logs.error("Error while loading molecule:\n", traceback.format_exc())
         os.remove(file.name)
+
+        self.__load_btn.get_content().text.value.set_all("Load")
+        self.__load_btn.get_content().unusable = False
+        self.update_menu(self.__menu)
 
     def bonds_ready(self, complex_list):
         self.add_dssp(complex_list, self.complex_ready)
