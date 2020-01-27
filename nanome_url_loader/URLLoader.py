@@ -172,20 +172,12 @@ class URLLoader(nanome.PluginInstance):
         self.__load_btn.get_content().unusable = False
         self.update_menu(self.__menu)
 
-    def get_remarks(self, path, current):
-        score = 0
-        for key, value in current.items():
-            if type(value) is list or type(value) is dict:
-                return get_remarks(path+[key], value)
-            else:
-                score += 1
-
-    def get_largest_flat(self, obj):
+    def get_remarks(self, obj):
         dict_found = False
         for value in obj.values():
             if type(value) is dict:
                 if not dict_found or len(value) > len(obj):
-                    obj = self.get_largest_flat(value)
+                    obj = self.get_remarks(value)
                 dict_found = True
         return obj
 
@@ -195,7 +187,7 @@ class URLLoader(nanome.PluginInstance):
             try:
                 metadata = json.loads(response.text.encode("utf-8"))
                 print(f"metadata: {metadata}")
-                complex_list[0]._remarks.update(self.get_largest_flat(metadata))
+                complex_list[0]._remarks.update(self.get_remarks(metadata))
             except Exception as e:
                 print(traceback.format_exc())
                 self.send_notification(nanome.util.enums.NotificationTypes.error, f"Error while parsing metadata")
