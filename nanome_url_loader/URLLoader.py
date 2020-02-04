@@ -26,7 +26,7 @@ EXTENSIONS = {"MMCIF": 'cif', "PDB": 'pdb', "SDF": 'sdf'}
 ##################
 ##################
 
-MENU_PATH = path.join(path.dirname(path.realpath(__file__)), "json/menus/Main.json")
+MENU_PATH = path.abspath(path.join(path.dirname(path.realpath(__file__)), "json/menus/Main.json"))
 class URLLoader(nanome.PluginInstance):
     def start(self):
         self._loading = False
