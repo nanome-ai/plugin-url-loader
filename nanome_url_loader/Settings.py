@@ -4,10 +4,7 @@ from functools import partial
 
 import nanome
 
-MENU_PATH = path.join(path.dirname(path.realpath(__file__)), "json/menus/settings.json")
-print(MENU_PATH)
-MENU_PATH = path.abspath(MENU_PATH)
-print(MENU_PATH)
+MENU_PATH = path.join(path.dirname(path.realpath(__file__)), "json/menus/Settings.json")
 
 class Settings():
 
