@@ -4,3 +4,4 @@ __pycache__
 /dist
 nanome_url_loader.egg-info
 nanome
+.DS_Store
