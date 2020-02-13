@@ -166,7 +166,7 @@ class URLLoader(nanome.PluginInstance):
                 self.add_bonds([complex], partial(self.bonds_ready, metadata_url))
             elif self.__filetype == "SDF":
                 complex = nanome.structure.Complex.io.from_sdf(path=file.name)
-                self.bonds_ready([complex])
+                self.bonds_ready(metadata_url, [complex])
             elif self.__filetype == "MMCIF":
                 complex = nanome.structure.Complex.io.from_mmcif(path=file.name)
                 self.add_bonds([complex], partial(self.bonds_ready, metadata_url))
