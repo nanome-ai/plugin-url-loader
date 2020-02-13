@@ -1,6 +1,5 @@
 import re
 import os
-from os import path
 from functools import partial
 
 import json
@@ -12,11 +11,13 @@ import nanome
 from nanome.util import Logs
 
 from .Settings import Settings
+from .Authentication import Authentication
 
 ##################
 ##### CONFIG #####
 ##################
 
+DEFAULT_AUTHENTICATION_URL = ""
 DEFAULT_STRUCTURE_URL = "https://files.rcsb.org/download/{{MoleculeCode}}.cif" # {{MoleculeCode}} indicates where to write molecule code
 DEFAULT_METADATA_URL = "localhost:8080" # {{MoleculeCode}} indicates where to write molecule code
 FILETYPE = "PDB" # PDB / SDF / MMCIF
@@ -26,7 +27,7 @@ EXTENSIONS = {"MMCIF": 'cif', "PDB": 'pdb', "SDF": 'sdf'}
 ##################
 ##################
 
-MENU_PATH = path.join(path.dirname(path.realpath(__file__)), "json/menus/Main.json")
+MENU_PATH = os.path.join(os.path.dirname(__file__), "json/menus/Main.json")
 class URLLoader(nanome.PluginInstance):
     def start(self):
         self._loading = False
@@ -34,10 +35,10 @@ class URLLoader(nanome.PluginInstance):
 
         self.__menu = nanome.ui.Menu.io.from_json(MENU_PATH)
 
-        # TODO remove for 1.16
-        self.menu.root.get_children().append(self.__menu.root)
 
-        self.__settings = Settings(self, DEFAULT_STRUCTURE_URL, DEFAULT_METADATA_URL)
+        self.session = requests.Session()
+        self.__settings = Settings(self, DEFAULT_AUTHENTICATION_URL, DEFAULT_STRUCTURE_URL, DEFAULT_METADATA_URL)
+        self.__auth     = Authentication(self, self.__settings, self.session, self.open_menu)
         self.__filetype = FILETYPE
 
         self.__ln_fields = self.__menu.root.find_node('Fields')
@@ -45,9 +46,16 @@ class URLLoader(nanome.PluginInstance):
         self.__type_selector = self.__menu.root.find_node('Type Selector')
         self.__load_btn = self.__menu.root.find_node('Load Button')
 
-        self.parse_fields()
+        self.update_fields()
         self.setup_menu()
-        self.open_menu()
+        # self.open_menu()
+
+        if self.__settings.authentication_required:
+            self.__auth.open_menu()
+        else:
+            self.open_menu()
+
+    # def prepare(self, menu=None):
 
     # When user clicks on "Run", open menu
     def on_run(self):
@@ -58,6 +66,7 @@ class URLLoader(nanome.PluginInstance):
 
     def open_menu(self, menu=None):
         self.__menu.enabled = True
+        # self.menu = self.__menu
         self.set_file_type(self.__filetype)
         self.render_fields()
 
@@ -70,11 +79,10 @@ class URLLoader(nanome.PluginInstance):
             btn.selected = btn.text.value.idle == self.__filetype
 
         if update: self.update_menu(self.__menu)
-        print(f'file type is now {self.__filetype}')
 
-    def parse_fields(self):
+    def update_fields(self):
         self.__fields.clear()
-        for url in [self.__settings.structure_url, self.__settings.metadata_url]:
+        for url in self.__settings.get_all().values():
             for field in re.findall('{{(.*?)}}', url):
                 self.__fields[field] = ''
 
@@ -114,7 +122,6 @@ class URLLoader(nanome.PluginInstance):
     def field_changed(self, field_name, text_input):
         text_input.input_text = re.sub('([^0-9A-z-._~])', '', text_input.input_text)
         self.__fields[field_name] = text_input.input_text
-        self.update_node(self.__ln_fields)
 
     def pressed_load(self, button):
         if self._loading == True:
@@ -123,8 +130,9 @@ class URLLoader(nanome.PluginInstance):
         button.text.value.set_all("Loading...")
         button.unusable = True
 
+        self.update_node(self.__ln_fields)
+
         for field_name, field_value in self.__fields.items():
-            print(f'{field_name}:{field_value}')
             if field_value == '':
                 self.send_notification(nanome.util.enums.NotificationTypes.error, f"Please set a value for {field_name}")
                 return
@@ -135,6 +143,11 @@ class URLLoader(nanome.PluginInstance):
     def load_molecule(self):
         structure_url = self.__settings.structure_url
         metadata_url = self.__settings.metadata_url
+
+        if self.__settings.authentication_required and not self.__auth.get_cookie('JSESSIONID'):
+            self.__plugin.send_notification(nanome.util.enums.NotificationTypes.error, "Could not authenticate.")
+            return
+
         self.last_structure_field = ""
         for field_name, field_value in self.__fields.items():
             new_structure_url = structure_url.replace("{{"+field_name+"}}", field_value)
@@ -143,9 +156,7 @@ class URLLoader(nanome.PluginInstance):
             structure_url = new_structure_url
             metadata_url = metadata_url.replace("{{"+field_name+"}}", field_value)
 
-        print(f'structure_url: {structure_url}')
-        print(f'metadata_url: {metadata_url}')
-        response = requests.get(structure_url)
+        response = self.session.get(structure_url)
         try:
             file = tempfile.NamedTemporaryFile(delete=False)
             file.write(response.text.encode("utf-8"))
@@ -183,14 +194,13 @@ class URLLoader(nanome.PluginInstance):
 
     def bonds_ready(self, metadata_url, complex_list):
         if len(complex_list):
-            response = requests.get(metadata_url)
             try:
+                response = self.session.get(metadata_url)
                 metadata = json.loads(response.text.encode("utf-8"))
-                print(f"metadata: {metadata}")
                 complex_list[0]._remarks.update(self.get_remarks(metadata))
             except Exception as e:
                 print(traceback.format_exc())
-                self.send_notification(nanome.util.enums.NotificationTypes.error, f"Error while parsing metadata")
+                self.send_notification(nanome.util.enums.NotificationTypes.error, f"Metadata error")
 
         self.add_dssp(complex_list, self.complex_ready)
 
