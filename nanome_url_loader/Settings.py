@@ -98,7 +98,6 @@ class Settings():
         return self.resources[name]
 
     def delete_resource(self, resource):
-        print(f"{resource['references']}")
         has_references = len(list(filter(lambda x: x > 0, [value for value in resource['references'].values()]))) > 0
         if not has_references:
             self.resource_names.remove(resource['name'])

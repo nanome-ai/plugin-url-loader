@@ -114,7 +114,6 @@ class MakeRequestMenu(nanome.PluginInstance):
         self.set_load_enabled(False)
 
         results = {}
-        print(f'request: {self.request}')
         for step in self.request['steps']:
             resource = step['resource']
             variables, load_url = resource['variables'], resource['url']
@@ -131,11 +130,8 @@ class MakeRequestMenu(nanome.PluginInstance):
             data_override_field_name = f"{self.request['name']} {step['name']} data"
             if step['override_data']:
                 data = self.__field_values[data_override_field_name]
-                print(f'overrode data to {data}')
 
             # construct headers and data from fields and step results
-            if method == 'post':
-                print(f'data before: {data}')
             for name, value in self.__field_values.items():
                 old_data = data
                 data = data.replace('{'+name+'}', value)
@@ -144,12 +140,8 @@ class MakeRequestMenu(nanome.PluginInstance):
             for i, (name, value) in enumerate(results.items()):
                 old_data = data
                 data = data.replace(f'${i+1}', value)
-                # print(f'replacing {old_data} with {data} from step results!')
                 for key in headers:
                     headers[key] = headers[key].replace(f'${i+1}', value)
-
-            if method == 'post':
-                print(f'data after: {data}')
 
             if method == 'get':
                 response = self.session.get(load_url, headers=headers)
@@ -163,8 +155,6 @@ class MakeRequestMenu(nanome.PluginInstance):
                 self.import_to_nanome(self.__field_values[last_var], import_type, response.text)
             # save step result
             results[step['name']] = response.text
-            if step['resource']['method'] == 'post':
-                print(response.text[:500])
 
         self.set_load_enabled(True)
 
@@ -210,7 +200,6 @@ class MakeRequestMenu(nanome.PluginInstance):
     def bonds_ready(self, name, metadata, complex_list):
         if len(complex_list):
             try:
-                print(metadata)
                 complex_list[0]._remarks.update(self.get_remarks(json.loads(metadata)))
             except Exception as e:
                 print(traceback.format_exc())
