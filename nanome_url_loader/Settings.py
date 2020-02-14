@@ -1,75 +1,193 @@
 import re
-from os import path
+import json
+import os
 from functools import partial
 
 import nanome
-
-MENU_PATH = path.join(path.dirname(path.realpath(__file__)), "json/menus/Settings.json")
+BASE_PATH = os.path.dirname(os.path.realpath(__file__))
+MENU_PATH = os.path.join(BASE_PATH, 'menus', 'json', 'Settings.json')
+OFF_ICON_PATH = os.path.join(BASE_PATH, 'assets', 'icons', 'off.png')
+ON_ICON_PATH = os.path.join(BASE_PATH, 'assets', 'icons', 'on.png')
 
 class Settings():
 
-  def __init__(self, plugin, default_load_url, default_metadata_url):
-    self.__plugin = plugin
-    self.structure_url = default_load_url
-    self.metadata_url = default_metadata_url
+    def __init__(self, plugin):
+        self.__plugin = plugin
+        self.resource_names = []
+        self.resources = {}
+        self.rsrc_i = 1
+        self.request_names = []
+        self.requests = {}
 
-    self.__menu = nanome.ui.Menu.io.from_json(MENU_PATH)
-    self.__menu.register_closed_callback(plugin.open_menu)
+        self.add_resource('Structure', 'https://files.rcsb.org/download/{MoleculeCode}.cif', 'get', None, {'Authorization': 'dXNlcjpwYXNzd29yZA=='}, 'hello')
+        self.add_request('Get Structure')
+        self.add_step('Get Structure', 'Step 1', 'Structure', False)
 
-    # TODO remove for 1.16
-    self.__plugin.menu.root.get_children().append(self.__menu.root)
+        self.__settings_path = os.path.normpath(os.path.join(plugin.plugin_files_path, 'url-loader', 'settings.json'))
+        if not os.path.exists(os.path.dirname(self.__settings_path)):
+            os.makedirs(os.path.dirname(self.__settings_path))
 
-    self.inp_structure = self.__menu.root.find_node('Structure URL Input').get_content()
-    self.inp_structure.register_changed_callback(partial(self.update_fields, 'structure'))
-    self.inp_structure.register_submitted_callback(self.save_url)
+        self.__settings = {'resource names': self.resource_names, 'resources': self.resources, 'resource i': self.rsrc_i, 'requests': self.requests, 'request names': self.request_names}
 
-    self.inp_metadata = self.__menu.root.find_node('Metadata URL Input').get_content()
-    self.inp_metadata.register_changed_callback(partial(self.update_fields, 'metadata'))
-    self.inp_metadata.register_submitted_callback(self.save_url)
+        self.__menu = nanome.ui.Menu.io.from_json(MENU_PATH)
+        self.__menu.register_closed_callback(plugin.open_menu)
 
-    self.__ln_save = self.__menu.root.find_node('Save Button')
-    self.__ln_save.get_content().register_pressed_callback(self.save_url)
+        self.load_settings()
 
-    self.try_load_url()
+    def save_settings(self, menu=None):
+        with open(self.__settings_path, 'w') as settings:
+            self.__settings =  {'resource names': self.resource_names, 'resources': self.resources, 'resource i': self.rsrc_i, 'requests': self.requests, 'request names': self.request_names}
+            json.dump(self.__settings, settings)
 
-  def open_menu(self):
-    self.try_load_url()
-    self.update_fields('structure')
-    self.update_fields('metadata')
-    self.__menu.enabled = True
-    self.__menu.index = 1
-    self.__plugin.update_menu(self.__menu)
+        self.__plugin.send_notification(nanome.util.enums.NotificationTypes.success, "Settings saved.")
 
-  def save_url(self, menu=None):
-    with open('structure_settings.txt', 'w') as structure_settings:
-      structure_settings.write(self.inp_structure.input_text)
+    def load_settings(self, update=False):
+        if os.path.exists(self.__settings_path):
+            with open(self.__settings_path, 'r') as file_settings:
+                settings = json.load(file_settings)
+                self.resource_names = settings['resource names']
+                self.resources = settings['resources']
+                self.rsrc_i = settings['resource i']
+                self.request_names = settings['request names']
+                self.requests = settings['requests']
 
-    with open('metadata_settings.txt', 'w') as metadata_settings:
-      metadata_settings.write(self.inp_metadata.input_text)
+        if update:
+            self.__plugin.update_menu(self.__menu)
 
-    self.__plugin.send_notification(nanome.util.enums.NotificationTypes.success, "Settings saved.")
-    self.__plugin.render_fields()
+    def set_extension(self, ext):
+        self.structure_url = re.sub('\.(cif|pdb|sdf)', f'.{ext}', self.structure_url)
 
-  def try_load_url(self, update=False):
-    if path.exists ('structure_settings.txt'):
-      with open('structure_settings.txt', 'r') as structure_settings:
-        self.structure_url = structure_settings.readlines()[0] or self.structure_url
+    def extract_vars(self, url):
+        fields = []
+        for field in re.findall('{(.*?)}', url):
+            fields.append(field)
+        return fields
 
-    if path.exists ('metadata_settings.txt'):
-      with open('metadata_settings.txt', 'r') as metadata_settings:
-        self.metadata_url = metadata_settings.readlines()[0] or self.metadata_url
+    def add_resource(self, name, url, method, import_type=None, headers={}, data=''):
+        self.rsrc_i += 1
+        variables = self.extract_vars(url)
+        if name not in self.resource_names:
+            self.resource_names.append(name)
+            self.resources[name] = {
+                'name': name,
+                'url': url,
+                'variables': variables,
+                'method': method,
+                'import type': import_type,
+                'headers': headers,
+                'data': data,
+                'references': {}
+            }
+        return self.resources[name]
 
-    self.inp_structure.input_text = self.structure_url
-    self.inp_metadata.input_text = self.metadata_url
+    def create_empty_resource():
+        name = f'Resource {self.rsrc_i}'
+        self.rsrc_i += 1
+        self.resource_names.append(name)
+        self.resources[name] = {
+            'name': name,
+            'url': '',
+            'variables': [],
+            'method': 'get',
+            'import type': '.json',
+            'headers': None,
+            'data': None,
+            'references': {}
+        }
+        return self.resources[name]
 
-    if update: self.__plugin.update_menu(self.__menu)
+    def delete_resource(self, resource):
+        if resource['references'] == 0:
+            self.resource_names.remove(resource['name'])
+            del resource
+            return True
+        else:
+            self.__plugin.send_notification(nanome.util.enums.NotificationTypes.error, "Resource in use")
+            return False
 
-  def update_fields(self, name, text_input=None):
-      text_input = text_input or getattr(self, 'inp_' + name)
-      text_input.input_text = re.sub("([^0-9A-z-._~:/\{\}])", '', text_input.input_text)
-      setattr(self, name + '_url', text_input.input_text)
-      self.__plugin.parse_fields()
-      self.__plugin.render_fields()
+    def rename_resource(self, resource, new_name):
+        old_name = resource['name']
+        self.resource_names[self.resource_names.index(old_name)] = new_name
+        self.resources[new_name] = resource
+        resource['name'] = new_name
+        del self.resources[old_name]
+        return True
 
-  def set_extension(self, ext):
-    self.structure_url = re.sub('\.(cif|pdb|sdf)', f'.{ext}', self.structure_url)
+    def change_resource_url(self, resource, new_url):
+        resource['url'] = new_url
+        resource['variables'] = self.extract_vars(new_url)
+        print(f'updated variables: {resource["variables"]}')
+        return True
+
+    def add_request(self, name):
+        if name not in self.requests:
+            self.request_names.append(name)
+            self.requests[name] = {'name': name, 'steps': [], 'step names': {}}
+            return True
+        else:
+            self.__plugin.send_notification(nanome.util.enums.NotificationTypes.error, "Please choose a unique name")
+            return False
+
+    def rename_request(self, request, new_name):
+        old_name = request['name']
+        self.request_names[self.request_names.index(old_name)] = new_name
+        self.requests[new_name] = request
+        self.requests[new_name]['name'] = new_name
+        del self.requests[old_name]
+        return True
+
+    def delete_request(self, name):
+        self.request_names.remove(name)
+        del self.requests[name]
+        return True
+
+    def add_step(self, request_name, step_name, resource_name, override_data):
+        request = self.requests[request_name]
+        if step_name not in request['step names']:
+            request['step names'][step_name] = True
+            step = {'name': step_name, 'resource': self.resources[resource_name], 'override_data': override_data}
+            request['steps'].append(step)
+            refs = self.resources[resource_name]['references']
+            refs[request_name] = refs.get(request_name, 0) + 1
+            return step
+        else:
+            self.__plugin.send_notification(nanome.util.enums.NotificationTypes.error, "Please choose a unique name")
+            return False
+
+    def rename_step(self, request_name, step, new_step_name):
+        request = self.requests[request_name]
+        step_name = step['name']
+        if step_name in request['step names']:
+            del request['step names'][step_name]
+            request['step names'][new_step_name] = True
+            for a_step in request['steps']:
+                if a_step['name'] == step_name:
+                    a_step['name'] = new_step_name
+                    return True
+        else:
+            self.__plugin.send_notification(nanome.util.enums.NotificationTypes.error, "Step does not exist")
+            return False
+
+    def move_step(self, request_name, step_index, new_index):
+        self.requests[request_name]['steps'].insert(new_index, self.requests[request_name]['steps'].pop(step_index))
+
+    def delete_step(self, request_name, step_index):
+        request = self.requests[request_name]
+        name = request['steps'][step_index]['name']
+        refs = request['steps'][step_index]['resource']['references']
+        if refs.get(request_name, None) == 0:
+            del request['steps'][step_index]['resource']['references'][request_name]
+        else:
+            refs[request_name] = refs.get(request_name, 1) - 1
+        del request['step names'][name]
+        del request['steps'][step_index]
+        return True
+
+    def request_fields(self, request):
+        fields = []
+        for step in request['steps']:
+            for variable in step['resource']['variables']:
+                fields.append(variable)
+            if step['override_data']:
+                fields.append(f"{request['name']}_{step['name']}_data")
+        return set(fields)
