@@ -129,7 +129,7 @@ class MakeRequestMenu(nanome.PluginInstance):
                 response = self.session.get(load_url)
                 response_text = response.text
                 if import_type:
-                    self.import_to_nanome(import_type, response_text)
+                    self.import_to_nanome(self.__field_values[last_var], import_type, response_text)
                 results[step['name']] = response_text
             # if post request, do post request
             elif method == 'post':
@@ -150,20 +150,20 @@ class MakeRequestMenu(nanome.PluginInstance):
         # self.__load_btn.get_content().unusable = False
         # self.update_menu(self.__menu)
 
-    def import_to_nanome(self, filetype, contents, metadata=None):
+    def import_to_nanome(self, name, filetype, contents, metadata="{}"):
         try:
             with tempfile.NamedTemporaryFile(mode='w+') as file:
                 file.write(contents)
                 file.seek(0)
                 if filetype == ".pdb":
                     complex = nanome.structure.Complex.io.from_pdb(path=file.name)
-                    self.add_bonds([complex], partial(self.bonds_ready, metadata))
+                    self.add_bonds([complex], partial(self.bonds_ready, name, metadata))
                 elif filetype == ".sdf":
                     complex = nanome.structure.Complex.io.from_sdf(path=file.name)
-                    self.bonds_ready(metadata, [complex])
+                    self.bonds_ready(name, metadata, [complex])
                 elif filetype == ".cif":
                     complex = nanome.structure.Complex.io.from_mmcif(path=file.name)
-                    self.add_bonds([complex], partial(self.bonds_ready, metadata))
+                    self.add_bonds([complex], partial(self.bonds_ready, name, metadata))
                 elif filetype == '.pdf':
                     self.send_notification(nanome.util.enums.NotificationTypes.error, f"PDF support coming soon")
                     return
@@ -173,7 +173,7 @@ class MakeRequestMenu(nanome.PluginInstance):
                     # load workspace
                 elif filetype == ".json":
                     complex = nanome.structure.Complex()
-                    self.bonds_ready(metadata, [complex])
+                    self.bonds_ready(name, metadata, [complex])
                 else:
                     Logs.error("Unknown filetype")
         except: # Making sure temp file gets deleted in case of problem
@@ -189,19 +189,20 @@ class MakeRequestMenu(nanome.PluginInstance):
                 dict_found = True
         return obj
 
-    def bonds_ready(self, metadata, complex_list):
+    def bonds_ready(self, name, metadata, complex_list):
         if len(complex_list):
             try:
+                print(metadata)
                 complex_list[0]._remarks.update(self.get_remarks(json.loads(metadata)))
             except Exception as e:
                 print(traceback.format_exc())
                 self.send_notification(nanome.util.enums.NotificationTypes.error, f"Metadata error")
-            self.add_dssp(complex_list, self.complex_ready)
+            self.add_dssp(complex_list, partial(self.complex_ready, name))
 
-    def complex_ready(self, complex_list):
+    def complex_ready(self, name, complex_list):
         self._loading = False
         self.send_notification(nanome.util.enums.NotificationTypes.success, f"Successfully loaded while parsing metadata")
-        complex_list[0].molecular.name = self.last_structure_field
+        complex_list[0].molecular.name = name
         self.add_to_workspace(complex_list)
 
 def main():
