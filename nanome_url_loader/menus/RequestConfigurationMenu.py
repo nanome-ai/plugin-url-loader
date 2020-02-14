@@ -79,6 +79,7 @@ class RequestConfigurationMenu():
                 external_toggle=external_toggle,
                 config_opened=open_config
             )
+            el.set_top_panel_text(resource['name'])
             el.set_tooltip('Override post data during request')
             self.lst_steps.items.append(el)
 
@@ -110,6 +111,7 @@ class RequestConfigurationMenu():
             config_opened=open_config,
             config_closed=close_config
         )
+        el.set_top_panel_text(resource_name)
         el.set_tooltip('Override post data during request')
         self.lst_steps.items.append(el)
         self.plugin.update_content(self.lst_steps)

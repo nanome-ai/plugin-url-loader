@@ -6,7 +6,7 @@ from enum import IntEnum
 import nanome
 
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
-JSON_PATH = os.path.join(BASE_PATH, 'json', 'ListElement.json')
+JSON_PATH = os.path.join(BASE_PATH, 'json', 'ListElement2.json')
 
 IMG_RENAME_PATH = os.path.join(BASE_PATH, '..', 'icons', 'rename.png')
 IMG_CONFIG_PATH = os.path.join(BASE_PATH, '..', 'icons', 'config.png')
@@ -43,6 +43,10 @@ class ListElement(nanome.ui.LayoutNode):
         self.btn_delete = ln.find_node("Delete").get_content()
         self.btn_delete.register_pressed_callback(self.remove_from_list)
 
+        self.ln_top = ln.find_node("Top Panel")
+        self.ln_static_label = ln.find_node("Static Resource Label")
+        self.lbl_resource = ln.find_node("Resource Label").get_content()
+
         self.ln_name   = ln.find_node("Name")
         self.ln_name.add_new_label(name).text_horizontal_align = nanome.util.enums.HorizAlignOptions.Middle
 
@@ -66,6 +70,7 @@ class ListElement(nanome.ui.LayoutNode):
 
         self.configure_for_resource_type(resource_display_type)
         self.set_externally_usable(externally_used)
+        self.set_top_panel_text('')
 
     def set_list(self, ui_list):
         self.ui_list = ui_list
@@ -141,6 +146,12 @@ class ListElement(nanome.ui.LayoutNode):
             self.ln_resource.get_content().input_text = display_text
         self.resource_value = display_text
         self.plugin.update_node(self.ln_resource)
+
+    def set_top_panel_text(self, text):
+        self.lbl_resource.text_value = text
+        self.ln_static_label.enabled = not not text
+        self.ln_top.get_content().mesh_color = nanome.util.color.Color(0, 0, 0 if not text else 50)
+        self.plugin.update_node(self.ln_top)
 
     def set_resource_visible(self, visible):
         self.ln_resource.enabled = visible
