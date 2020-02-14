@@ -116,7 +116,6 @@ class Settings():
     def change_resource_url(self, resource, new_url):
         resource['url'] = new_url
         resource['variables'] = self.extract_vars(new_url)
-        print(f'updated variables: {resource["variables"]}')
         return True
 
     def add_request(self, name):
@@ -189,5 +188,5 @@ class Settings():
             for variable in step['resource']['variables']:
                 fields.append(variable)
             if step['override_data']:
-                fields.append(f"{request['name']}_{step['name']}_data")
+                fields.append(f"{request['name']} {step['name']} data")
         return set(fields)

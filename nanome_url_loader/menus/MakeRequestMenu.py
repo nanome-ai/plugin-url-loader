@@ -96,7 +96,7 @@ class MakeRequestMenu(nanome.PluginInstance):
 
     def clean_field(self, name, update=False, text_input=None):
         value = text_input.input_text if text_input else self.__field_values[name]
-        self.__field_values[name] = re.sub('([^0-9A-z-._~])', '', value)
+        self.__field_values[name] = re.sub('([^0-9A-z-._~{}$])', '', value)
         self.update_node(self.__ln_fields)
 
     def set_load_enabled(self, enabled):
@@ -114,41 +114,59 @@ class MakeRequestMenu(nanome.PluginInstance):
         self.set_load_enabled(False)
 
         results = {}
+        print(f'request: {self.request}')
         for step in self.request['steps']:
             resource = step['resource']
             variables, load_url = resource['variables'], resource['url']
             method, import_type = resource['method'].lower(), resource['import type']
             headers, data = resource['headers'], resource['data']
 
+            # prepare the url
             last_var = None
             for var in variables:
                 load_url = load_url.replace("{"+var+"}", self.__field_values[var])
                 last_var = var
 
-            if method == 'get':
-                response = self.session.get(load_url)
-                response_text = response.text
-                if import_type:
-                    self.import_to_nanome(self.__field_values[last_var], import_type, response_text)
-                results[step['name']] = response_text
-            # if post request, do post request
-            elif method == 'post':
-                # create data from previous steps using {request_name}_{step_name}_data in fields and data
-                data_override_field_name = f"{self.request['name']}_{step['name']}_data"
-                if data_override_field_name in self.__field_names:
-                    data = self.__field_values[data_override_field_name]
-                # construct data
+            # override data if necessary
+            data_override_field_name = f"{self.request['name']} {step['name']} data"
+            if step['override_data']:
+                data = self.__field_values[data_override_field_name]
+                print(f'overrode data to {data}')
 
-                pass
-                # if type is selected, load into nanome
-                # else (make sure this happens), just save in results
+            # construct headers and data from fields and step results
+            if method == 'post':
+                print(f'data before: {data}')
+            for name, value in self.__field_values.items():
+                old_data = data
+                data = data.replace('{'+name+'}', value)
+                for key in headers:
+                    headers[key] = headers[key].replace('{'+name+'}', value)
+            for i, (name, value) in enumerate(results.items()):
+                old_data = data
+                data = data.replace(f'${i+1}', value[:100])
+                # print(f'replacing {old_data} with {data} from step results!')
+                for key in headers:
+                    headers[key] = headers[key].replace('$'+i, value)
+
+            if method == 'post':
+                print(f'data after: {data}')
+
+            if method == 'get':
+                response = self.session.get(load_url, headers=headers)
+            elif method == 'post':
+                if 'Content-Type' not in headers:
+                    headers['Content-Type'] = 'text/plain'
+                response = self.session.post(load_url, headers=headers, data=data.encode('utf-8'))
+
+            # import to nanome if necessary
+            if import_type:
+                self.import_to_nanome(self.__field_values[last_var], import_type, response.text)
+            # save step result
+            results[step['name']] = response.text
+            if step['resource']['method'] == 'post':
+                print(response.text[:500])
 
         self.set_load_enabled(True)
-
-
-        # self.__load_btn.get_content().text.value.set_all("Load")
-        # self.__load_btn.get_content().unusable = False
-        # self.update_menu(self.__menu)
 
     def import_to_nanome(self, name, filetype, contents, metadata="{}"):
         try:

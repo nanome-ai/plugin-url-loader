@@ -62,7 +62,6 @@ class RequestConfigurationMenu():
         for step in steps:
             step_name = step['name']
             resource = step['resource']
-            post = resource['method'] == 'post'
             external_toggle = partial(self.toggle_use_data_in_request, step)
             open_config = partial(self.config_opened, resource)
             el = ListElement(
@@ -72,7 +71,7 @@ class RequestConfigurationMenu():
                 resource['name'],
                 self.settings.resources,
                 ResourceDisplayType.Mutable,
-                post,
+                resource['method'] == 'post',
                 self.menu,
                 deleted=self.delete_step,
                 renamed=partial(self.rename_step, step),
@@ -90,6 +89,8 @@ class RequestConfigurationMenu():
             self.settings.create_empty_resource()
         resource_name = self.resource['name'] if self.resource else self.settings.resource_names[-1]
         step = self.settings.add_step(self.request['name'], step_name, resource_name, False)
+        if not step:
+            return
         external_toggle = partial(self.toggle_use_data_in_request, step)
         open_config = partial(self.config_opened, self.settings.resources[resource_name])
         close_config = partial(self.config_closed, self.settings.resources[resource_name])
@@ -100,7 +101,7 @@ class RequestConfigurationMenu():
             resource_name,
             self.settings.resources,
             ResourceDisplayType.Mutable,
-            False,
+            self.resource['method'] == 'post',
             self.menu,
             deleted=self.delete_step,
             renamed=partial(self.rename_step, step),
@@ -142,9 +143,9 @@ class RequestConfigurationMenu():
     def config_closed(self, resource):
         pass
 
-    def toggle_use_data_in_request(self, step, use_data):
+    def toggle_use_data_in_request(self, step, element, use_data):
         step['override_data'] = not step['override_data']
-        self.plugin.update_menu(self.plugin.menu)
+        self.plugin.show_request()
         return True
 
     def refresh_steps(self):
