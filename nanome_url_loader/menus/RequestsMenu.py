@@ -49,6 +49,10 @@ class RequestsMenu():
         self.plugin.update_content(self.requests_list)
 
     def delete_request(self, element):
+        request = self.settings.requests[element.name]
+        if self.plugin.request is request:
+            self.plugin.request = None
+            self.plugin.show_request()
         return self.settings.delete_request(element.name)
 
     def request_renamed(self, request, element, new_name):

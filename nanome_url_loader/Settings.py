@@ -19,11 +19,12 @@ class Settings():
         self.request_names = []
         self.requests = {}
 
-        self.add_resource('Structure', 'https://files.rcsb.org/download/{MoleculeCode}.cif', 'get', None, {'Authorization': 'dXNlcjpwYXNzd29yZA=='}, 'hello')
+        self.add_resource('Structure', 'https://files.rcsb.org/download/{MoleculeCode}.pdb', 'get', None, {'Content-Type': 'text/plain'}, '')
         self.add_request('Get Structure')
         self.add_step('Get Structure', 'Step 1', 'Structure', False)
 
         self.__settings_path = os.path.normpath(os.path.join(plugin.plugin_files_path, 'url-loader', 'settings.json'))
+        print(self.__settings_path)
         if not os.path.exists(os.path.dirname(self.__settings_path)):
             os.makedirs(os.path.dirname(self.__settings_path))
 
@@ -63,7 +64,7 @@ class Settings():
             fields.append(field)
         return fields
 
-    def add_resource(self, name, url, method, import_type=None, headers={}, data=''):
+    def add_resource(self, name, url, method, import_type=None, headers={'Content-Type':'text/plain'}, data=None):
         self.rsrc_i += 1
         variables = self.extract_vars(url)
         if name not in self.resource_names:
@@ -90,14 +91,16 @@ class Settings():
             'variables': [],
             'method': 'get',
             'import type': '.json',
-            'headers': None,
+            'headers': {'Content-Type':'text/plain'},
             'data': None,
             'references': {}
         }
         return self.resources[name]
 
     def delete_resource(self, resource):
-        if resource['references'] == 0:
+        print(f"{resource['references']}")
+        has_references = len(list(filter(lambda x: x > 0, [value for value in resource['references'].values()]))) > 0
+        if not has_references:
             self.resource_names.remove(resource['name'])
             del resource
             return True
@@ -136,6 +139,8 @@ class Settings():
         return True
 
     def delete_request(self, name):
+        for i, step in enumerate(self.requests[name]['steps']):
+            self.delete_step(name, i)
         self.request_names.remove(name)
         del self.requests[name]
         return True
