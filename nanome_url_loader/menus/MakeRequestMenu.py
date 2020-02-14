@@ -120,11 +120,6 @@ class MakeRequestMenu(nanome.PluginInstance):
             method, import_type = resource['method'].lower(), resource['import type']
             headers, data = resource['headers'], resource['data']
             metadata = step['metadata_source']
-            # prepare the url
-            last_var = None
-            for var in variables:
-                load_url = load_url.replace("{"+var+"}", self.field_values[var])
-                last_var = var
 
             # override data if necessary
             data_override_field_name = f"{self.request['name']} {step['name']} data"
@@ -133,13 +128,13 @@ class MakeRequestMenu(nanome.PluginInstance):
 
             # construct headers, data and metadata_source from fields and step results
             for name, value in self.field_values.items():
-                old_data = data
+                load_url = load_url.replace('{'+name+'}', value)
                 data = data.replace('{'+name+'}', value)
                 metadata = metadata.replace('{'+name+'}', value)
                 for key in headers:
                     headers[key] = headers[key].replace('{'+name+'}', value)
             for i, (name, value) in enumerate(results.items()):
-                old_data = data
+                load_url = load_url.replace(f'${i+1}', value)
                 data = data.replace(f'${i+1}', value)
                 metadata = metadata.replace(f'${i+1}', value)
                 for key in headers:
