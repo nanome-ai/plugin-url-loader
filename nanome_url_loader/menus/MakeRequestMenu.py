@@ -143,10 +143,10 @@ class MakeRequestMenu(nanome.PluginInstance):
                     headers[key] = headers[key].replace('{'+name+'}', value)
             for i, (name, value) in enumerate(results.items()):
                 old_data = data
-                data = data.replace(f'${i+1}', value[:100])
+                data = data.replace(f'${i+1}', value)
                 # print(f'replacing {old_data} with {data} from step results!')
                 for key in headers:
-                    headers[key] = headers[key].replace('$'+i, value)
+                    headers[key] = headers[key].replace(f'${i+1}', value)
 
             if method == 'post':
                 print(f'data after: {data}')
