@@ -141,6 +141,7 @@ class MakeRequestMenu(nanome.PluginInstance):
                     headers[key] = headers[key].replace(f'${i+1}', value)
 
             if method == 'get':
+                print(f'load_url: {load_url}')
                 response = self.session.get(load_url, headers=headers)
             elif method == 'post':
                 if 'Content-Type' not in headers:
