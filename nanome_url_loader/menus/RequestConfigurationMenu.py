@@ -68,7 +68,7 @@ class RequestConfigurationMenu():
                 self.plugin,
                 self.lst_steps,
                 step_name,
-                resource['name'],
+                '',
                 self.settings.resources,
                 ResourceDisplayType.Mutable,
                 resource['method'] == 'post',
@@ -80,6 +80,7 @@ class RequestConfigurationMenu():
                 config_opened=open_config
             )
             el.set_top_panel_text(resource['name'])
+            el.set_resource_placeholder("Metadata source ($step_number)")
             el.set_tooltip('Override post data during request')
             self.lst_steps.items.append(el)
 
@@ -89,7 +90,7 @@ class RequestConfigurationMenu():
         if not len(self.settings.resource_names):
             self.settings.create_empty_resource()
         resource_name = self.resource['name'] if self.resource else self.settings.resource_names[-1]
-        step = self.settings.add_step(self.request['name'], step_name, resource_name, False)
+        step = self.settings.add_step(self.request['name'], step_name, resource_name, '', False)
         if not step:
             return
         external_toggle = partial(self.toggle_use_data_in_request, step)
@@ -99,7 +100,7 @@ class RequestConfigurationMenu():
             self.plugin,
             self.lst_steps,
             step_name,
-            resource_name,
+            '',
             self.settings.resources,
             ResourceDisplayType.Mutable,
             self.resource['method'] == 'post',
@@ -112,6 +113,7 @@ class RequestConfigurationMenu():
             config_closed=close_config
         )
         el.set_top_panel_text(resource_name)
+        el.set_resource_placeholder('Metadata source ($step_number)')
         el.set_tooltip('Override post data during request')
         self.lst_steps.items.append(el)
         self.plugin.update_content(self.lst_steps)
@@ -123,9 +125,14 @@ class RequestConfigurationMenu():
     def rename_step(self, step, element, new_name):
         return self.settings.rename_step(self.request['name'], step, new_name)
 
-    def validate_new_resource(self, step, new_resource_name):
-        if new_resource_name in self.settings.resources:
-            step['resource'] = self.settings.resources[new_resource_name]
+    def validate_new_resource(self, step, metadata_source_name):
+        step_index = self.plugin.request['steps'].index(step)
+        if metadata_source_name in self.plugin.field_names:
+            step['metadata_source'] = metadata_source_name
+            self.plugin.send_notification(nanome.util.enums.NotificationTypes.success, "Resource for step updated")
+            return True
+        elif metadata_source_name in [f'${i+1}' for i in range(0, step_index)]:
+            step['metadata_source'] = metadata_source_name
             self.plugin.send_notification(nanome.util.enums.NotificationTypes.success, "Resource for step updated")
             return True
         else:

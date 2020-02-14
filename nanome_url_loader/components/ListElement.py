@@ -30,7 +30,7 @@ class ListElement(nanome.ui.LayoutNode):
         self.ui_list = ui_list
 
         self.resource_value = resource_value
-        self.resource_display_type = ResourceDisplayType.Fixed
+        self.resource_display_type = resource_display_type
         self.resource_source = resource_source
 
         self.deleted = deleted
@@ -141,8 +141,13 @@ class ListElement(nanome.ui.LayoutNode):
     def set_resource_value(self, text_input):
         self.resource_value = text_input.input_text
 
+    def set_resource_placeholder(self, placeholder_text):
+        if self.resource_display_type is ResourceDisplayType.Mutable:
+            self.ln_resource.get_content().placeholder_text = placeholder_text
+        self.plugin.update_node(self.ln_resource)
+
     def set_resource_display(self, display_text):
-        if self.resource_type is ResourceDisplayType.Mutable:
+        if self.resource_display_type is ResourceDisplayType.Mutable:
             self.ln_resource.get_content().input_text = display_text
         self.resource_value = display_text
         self.plugin.update_node(self.ln_resource)
@@ -150,8 +155,11 @@ class ListElement(nanome.ui.LayoutNode):
     def set_top_panel_text(self, text):
         self.lbl_resource.text_value = text
         self.ln_static_label.enabled = not not text
-        self.ln_top.get_content().mesh_color = nanome.util.color.Color(0, 0, 0 if not text else 50)
-        self.plugin.update_node(self.ln_top)
+        if not text:
+            self.ln_top.remove_content()
+        else:
+            self.ln_top.add_new_mesh().mesh_color = nanome.util.color.Color(0, 0, 50)
+        self.plugin.update_content(self.ui_list)
 
     def set_resource_visible(self, visible):
         self.ln_resource.enabled = visible

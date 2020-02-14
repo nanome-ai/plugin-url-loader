@@ -24,8 +24,8 @@ class MakeRequestMenu(nanome.PluginInstance):
         self.menu.index = 0
         self.__requests = RequestsMenu(self, self.settings)
         self.__resources = ResourcesMenu(self, self.settings)
-        self.__field_names = set()
-        self.__field_values = {}
+        self.field_names = set()
+        self.field_values = {}
 
         self.request = None
 
@@ -63,10 +63,10 @@ class MakeRequestMenu(nanome.PluginInstance):
             self.update_menu(self.menu)
             return
 
-        self.__field_names = self.settings.request_fields(self.request)
-        self.__field_values = {name:'' for name in self.__field_names}
-        for field_name in self.__field_names:
-            field_value = self.__field_values.get(field_name, '')
+        self.field_names = self.settings.request_fields(self.request)
+        self.field_values = {name:'' for name in self.field_names}
+        for field_name in self.field_names:
+            field_value = self.field_values.get(field_name, '')
             ln = nanome.ui.LayoutNode()
             ln.sizing_type = nanome.util.enums.SizingTypes.ratio
             ln.sizing_value = 0.25
@@ -92,11 +92,11 @@ class MakeRequestMenu(nanome.PluginInstance):
         self.update_menu(self.menu)
 
     def field_changed(self, field_name, text_input):
-        self.__field_values[field_name] = text_input.input_text
+        self.field_values[field_name] = text_input.input_text
 
     def clean_field(self, name, update=False, text_input=None):
-        value = text_input.input_text if text_input else self.__field_values[name]
-        self.__field_values[name] = re.sub('([^0-9A-z-._~{}$])', '', value)
+        value = text_input.input_text if text_input else self.field_values[name]
+        self.field_values[name] = re.sub('([^0-9A-z-._~{}$])', '', value)
         self.update_node(self.__ln_fields)
 
     def set_load_enabled(self, enabled):
@@ -108,7 +108,7 @@ class MakeRequestMenu(nanome.PluginInstance):
             self.send_notification(nanome.util.enums.NotificationTypes.message, "Please select a request")
             return
 
-        for name in self.__field_names:
+        for name in self.field_names:
             self.clean_field(name)
 
         self.set_load_enabled(False)
@@ -119,27 +119,29 @@ class MakeRequestMenu(nanome.PluginInstance):
             variables, load_url = resource['variables'], resource['url']
             method, import_type = resource['method'].lower(), resource['import type']
             headers, data = resource['headers'], resource['data']
-
+            metadata = step['metadata_source']
             # prepare the url
             last_var = None
             for var in variables:
-                load_url = load_url.replace("{"+var+"}", self.__field_values[var])
+                load_url = load_url.replace("{"+var+"}", self.field_values[var])
                 last_var = var
 
             # override data if necessary
             data_override_field_name = f"{self.request['name']} {step['name']} data"
             if step['override_data']:
-                data = self.__field_values[data_override_field_name]
+                data = self.field_values[data_override_field_name]
 
-            # construct headers and data from fields and step results
-            for name, value in self.__field_values.items():
+            # construct headers, data and metadata_source from fields and step results
+            for name, value in self.field_values.items():
                 old_data = data
                 data = data.replace('{'+name+'}', value)
+                metadata = metadata.replace('{'+name+'}', value)
                 for key in headers:
                     headers[key] = headers[key].replace('{'+name+'}', value)
             for i, (name, value) in enumerate(results.items()):
                 old_data = data
                 data = data.replace(f'${i+1}', value)
+                metadata = metadata.replace(f'${i+1}', value)
                 for key in headers:
                     headers[key] = headers[key].replace(f'${i+1}', value)
 
@@ -152,13 +154,13 @@ class MakeRequestMenu(nanome.PluginInstance):
 
             # import to nanome if necessary
             if import_type:
-                self.import_to_nanome(self.__field_values[last_var], import_type, response.text)
+                self.import_to_nanome(self.field_values[last_var], import_type, response.text, metadata)
             # save step result
             results[step['name']] = response.text
 
         self.set_load_enabled(True)
 
-    def import_to_nanome(self, name, filetype, contents, metadata="{}"):
+    def import_to_nanome(self, name, filetype, contents, metadata):
         try:
             with tempfile.NamedTemporaryFile(mode='w+') as file:
                 file.write(contents)

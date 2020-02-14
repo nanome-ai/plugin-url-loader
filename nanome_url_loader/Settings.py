@@ -21,7 +21,7 @@ class Settings():
 
         self.add_resource('Structure', 'https://files.rcsb.org/download/{MoleculeCode}.pdb', 'get', None, {'Content-Type': 'text/plain'}, '')
         self.add_request('Get Structure')
-        self.add_step('Get Structure', 'Step 1', 'Structure', False)
+        self.add_step('Get Structure', 'Step 1', 'Structure')
 
         self.__settings_path = os.path.normpath(os.path.join(plugin.plugin_files_path, 'url-loader', 'settings.json'))
         print(self.__settings_path)
@@ -64,7 +64,7 @@ class Settings():
             fields.append(field)
         return fields
 
-    def add_resource(self, name, url, method, import_type=None, headers={'Content-Type':'text/plain'}, data=None):
+    def add_resource(self, name, url, method, import_type=None, headers={'Content-Type':'text/plain'}, data=''):
         self.rsrc_i += 1
         variables = self.extract_vars(url)
         if name not in self.resource_names:
@@ -144,11 +144,11 @@ class Settings():
         del self.requests[name]
         return True
 
-    def add_step(self, request_name, step_name, resource_name, override_data):
+    def add_step(self, request_name, step_name, resource_name, metadata_source='', override_data=False):
         request = self.requests[request_name]
         if step_name not in request['step names']:
             request['step names'][step_name] = True
-            step = {'name': step_name, 'resource': self.resources[resource_name], 'override_data': override_data}
+            step = {'name': step_name, 'resource': self.resources[resource_name], 'override_data': override_data, 'metadata_source': metadata_source}
             request['steps'].append(step)
             refs = self.resources[resource_name]['references']
             refs[request_name] = refs.get(request_name, 0) + 1
