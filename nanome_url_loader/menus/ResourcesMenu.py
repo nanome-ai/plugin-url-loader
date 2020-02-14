@@ -38,7 +38,7 @@ class ResourcesMenu():
 
     def change_resource_url(self, resource, new_url):
         if self.settings.change_resource_url(resource, new_url):
-            if resource['references'].get(self.plugin.request['name']):
+            if resource['references'].get(self.plugin.request.get('name')):
                 self.plugin.show_request()
             return True
         return False
