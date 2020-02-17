@@ -31,7 +31,7 @@ class URLLoader(nanome.PluginInstance):
     def start(self):
         self.set_plugin_list_button(self.PluginListButtonType.run, 'Save')
         self.set_plugin_list_button(self.PluginListButtonType.advanced_settings, 'Edit Resources')
-        if self.settings.request_names:
+        if self.settings.request_ids:
             self.make_request.request = self.settings.get_request(0)
             self.make_request.show_request()
         self.make_request.open_menu()

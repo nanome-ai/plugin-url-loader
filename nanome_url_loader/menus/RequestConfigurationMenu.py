@@ -36,16 +36,15 @@ class RequestConfigurationMenu():
     def refresh_resources(self):
         self.lst_all_steps.items = []
         if not self.resource and self.settings.resources:
-            print(f'{self.settings.resources}')
-            print(f'{self.settings.resource_names}')
-            self.resource = self.settings.resources[self.settings.resource_names[-1]]
-        for name, resource in self.settings.resources.items():
+            self.resource = self.settings.get_resource_by_index(-1)
+        for r_id, resource in self.settings.resources.items():
+            name = resource['name']
             pfb = nanome.ui.LayoutNode()
-            btn = pfb.add_new_button(name)
-            btn.resource = resource
-            btn.selected = name == self.resource['name']
-            btn.text_horizontal_align = nanome.util.enums.HorizAlignOptions.Middle
-            btn.register_pressed_callback(self.set_resource)
+            button = pfb.add_new_button(name)
+            button.resource = resource
+            button.selected = r_id == self.resource['id']
+            button.text_horizontal_align = nanome.util.enums.HorizAlignOptions.Middle
+            button.register_pressed_callback(self.set_resource)
             self.lst_all_steps.items.append(pfb)
         self.plugin.update_content(self.lst_all_steps)
 
@@ -53,7 +52,7 @@ class RequestConfigurationMenu():
         self.resource = button.resource
         for element in self.lst_all_steps.items:
             btn = element.get_content()
-            btn.selected = btn.resource['name'] == self.resource['name']
+            btn.selected = btn.resource['id'] == self.resource['id']
         self.plugin.update_content(self.lst_all_steps)
 
     def set_request(self, request):
@@ -63,7 +62,7 @@ class RequestConfigurationMenu():
         self.step_i = len(steps) + 1
         for step in steps:
             step_name = step['name']
-            resource = step['resource']
+            resource = self.settings.get_resource_by_id(step['resource'])
             external_toggle = partial(self.toggle_use_data_in_request, step)
             open_config = partial(self.config_opened, resource)
             el = ListElement(
@@ -91,13 +90,15 @@ class RequestConfigurationMenu():
         self.step_i += 1
         if not len(self.settings.resource_names):
             self.settings.create_empty_resource()
-        resource_name = self.resource['name'] if self.resource else self.settings.resource_names[-1]
-        step = self.settings.add_step(self.request['name'], step_name, resource_name, '', False)
+        
+        resource = self.resource or self.settings.get_resource_by_index(-1) or {}
+        resource_id = resource.get('id', '')
+        step = self.settings.add_step(self.request['id'], step_name, resource_id, '', False)
         if not step:
             return
         external_toggle = partial(self.toggle_use_data_in_request, step)
-        open_config = partial(self.config_opened, self.settings.resources[resource_name])
-        close_config = partial(self.config_closed, self.settings.resources[resource_name])
+        open_config = partial(self.config_opened, resource)
+        close_config = partial(self.config_closed, resource)
         el = ListElement(
             self.plugin,
             self.lst_steps,
@@ -105,7 +106,7 @@ class RequestConfigurationMenu():
             '',
             self.settings.resources,
             ResourceDisplayType.Mutable,
-            self.resource['method'] == 'post',
+            resource['method'] == 'post',
             self.menu,
             deleted=self.delete_step,
             renamed=partial(self.rename_step, step),
@@ -114,7 +115,7 @@ class RequestConfigurationMenu():
             config_opened=open_config,
             config_closed=close_config
         )
-        el.set_top_panel_text(resource_name)
+        el.set_top_panel_text(resource.get('name', ''))
         el.set_resource_placeholder('Metadata source ({{step1}})')
         el.set_tooltip('Override post data during request')
         self.lst_steps.items.append(el)
@@ -122,10 +123,10 @@ class RequestConfigurationMenu():
 
     def delete_step(self, element):
         index = self.lst_steps.items.index(element)
-        return self.settings.delete_step(self.request['name'], index)
+        return self.settings.delete_step(self.request['id'], index)
 
     def rename_step(self, step, element, new_name):
-        return self.settings.rename_step(self.request['name'], step, new_name)
+        return self.settings.rename_step(self.request['id'], step, new_name)
 
     def validate_new_resource(self, step, metadata_source_name):
         step_index = self.plugin.make_request.request['steps'].index(step)
@@ -139,13 +140,6 @@ class RequestConfigurationMenu():
 
     def config_opened(self, resource):
         self.resource_config.open_menu(resource)
-        # request = self.settings.requests[self.request]
-        # first = True
-        # for ln_element in self.lst_steps.items:
-        #     if step['resource'] is resource:
-        #         self.resource_config.add_step_dependency()
-        #     first = False
-        # return True
 
     def config_closed(self, resource):
         pass

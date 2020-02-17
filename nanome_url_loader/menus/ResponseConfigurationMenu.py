@@ -160,9 +160,11 @@ class ResponseConfigurationMenu():
         var_path = self.variable_confirm.var_path
       self.settings.set_output_var(self.resource, var_name, var_path)
 
-      print(f"resources[resource_name]: {self.settings.resources[self.resource['name']]}")
+      print(f"resources[resource_id]: {self.settings.resources[self.resource['id']]}")
       
       # close variable confirm menu
       self.variable_confirm.enabled = False
       self.plugin.update_menu(self.variable_confirm)
+      self.menu.enabled = False
+      self.plugin.update_menu(self.menu)
       self.plugin.send_notification(nanome.util.enums.NotificationTypes.success, f"Resource set to output {var_name}")

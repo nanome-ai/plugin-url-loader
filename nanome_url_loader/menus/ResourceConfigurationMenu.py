@@ -76,7 +76,7 @@ class ResourceConfigurationMenu():
     def resource_url_changed(self, text_input):
         self.settings.change_resource(self.resource, new_url=text_input.input_text)
         if self.plugin.make_request.request:
-            if self.resource['references'].get(self.plugin.make_request.request['name']):
+            if self.resource['references'].get(self.plugin.make_request.request['id']):
                 self.plugin.make_request.show_request()
 
     def data_changed(self, text_input):

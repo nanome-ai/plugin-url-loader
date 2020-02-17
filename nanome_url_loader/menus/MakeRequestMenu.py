@@ -37,9 +37,8 @@ class MakeRequestMenu():
         self.btn_load = self.menu.root.find_node('Load Button').get_content()
         self.btn_load.register_pressed_callback(self.load_request)
 
-    def open_menu(self, index=0):
+    def open_menu(self):
         self.menu.enabled = True
-        self.menu.index = index
         self.plugin.update_menu(self.menu)
 
     def show_request(self):
@@ -93,9 +92,7 @@ class MakeRequestMenu():
     def contextualize(self, variable, contexts):
         for name in self.settings.extract_variables(variable):
             value = self.settings.get_variable(name)
-            print(f"name={name}, value={value}")
             variable = variable.replace('{{'+name+'}}', value)
-            print("VARIABLE:", variable)
         return variable
 
     def get_response(self, resource, contexts, data=None):
@@ -104,17 +101,20 @@ class MakeRequestMenu():
         headers = resource['headers']
         data = data or resource['data']
         load_url = self.contextualize(variable=load_url, contexts=contexts)
+        print(f'contextualizing headers... {headers}')
         headers = {name:self.contextualize(value, contexts) for name,value in headers.items()}
+        print('contextualizing data...')
         data = self.contextualize(data, contexts=contexts)
         headers.update({'Content-Length': str(len(data))})
 
         if method == 'get':
             print(f'load_url: {load_url}')
-            response = self.session.get(load_url, proxies=self.proxies)
+            response = self.session.get(load_url, proxies=self.proxies, verify=False)
         elif method == 'post':
             if 'Content-Type' not in headers:
                 headers['Content-Type'] = 'text/plain'
-            response = self.session.post(load_url, headers=headers, data=data.encode('utf-8'), proxies=self.proxies)
+            print(f'resource: {resource}')
+            response = self.session.post(load_url, data=data.encode('utf-8'), proxies=self.proxies, verify=False)
         
         out_name, out_value = self.set_response_vars(resource, response.text)
         return response, (out_name, out_value)
@@ -144,7 +144,7 @@ class MakeRequestMenu():
         self.set_load_enabled(False)
         results = {}
         for i, step in enumerate(self.request['steps']):
-            resource = step['resource']
+            resource = self.settings.get_resource_by_id(step['resource'])
             import_type = resource['import type']
             metadata = step['metadata_source']
             data = resource['data'].replace("\'", "\"")
@@ -153,9 +153,9 @@ class MakeRequestMenu():
             if step['override_data']:
                 data = self.field_values[data_override_field_name]
 
+            contexts = [self.settings.variables, self.field_values, results]
             response, (out_var, out_value) = self.get_response(resource, contexts, data)
             print(f'response: {response.text}')
-            contexts = [self.settings.variables, self.field_values, results]
             import_name = self.contextualize(variable=resource['import name'], contexts=contexts)
             if import_type: self.import_to_nanome(import_name, import_type, response.text, metadata)
             results[f'step{i+1}'] = out_value or response.text

@@ -16,8 +16,6 @@ class ResourcesMenu():
         self.menu = nanome.ui.Menu.io.from_json(MENU_PATH)
         self.menu.index = 3
 
-        self.rsrc_i = 0
-
         self.lst_resources = self.menu.root.find_node('Resources List').get_content()
         self.add_get_resource = self.menu.root.find_node('Add Get Resource').get_content()
         self.add_get_resource.register_pressed_callback(partial(self.add_resource, 'get'))
@@ -43,9 +41,8 @@ class ResourcesMenu():
         return False
 
     def add_resource(self, method, button = None):
-        name = f'Resource {self.rsrc_i}'
+        name = f'Resource {len(self.settings.resource_ids)}'
         resource = self.settings.add_resource(name, '', method)
-        self.rsrc_i += 1
         delete = partial(self.delete_resource, resource)
         open_config = partial(self.resource_config.open_menu, resource)
         el = ListElement(
@@ -68,7 +65,6 @@ class ResourcesMenu():
     def refresh_resources(self):
         self.lst_resources.items = []
         for name, resource in self.settings.resources.items():
-            self.rsrc_i += 1
             el = ListElement(
                 self.plugin,
                 self.lst_resources,

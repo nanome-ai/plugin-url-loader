@@ -30,8 +30,7 @@ class RequestsMenu():
 
     def add_request(self, button):
         name = f'Request {self.req_i}'
-        self.settings.add_request(name)
-        request =  self.settings.requests[name]
+        request = self.settings.add_request(name)
         self.req_i += 1
         element = ListElement(
             self.plugin,
@@ -44,16 +43,17 @@ class RequestsMenu():
             external_toggle=self.set_active_request,
             config_opened=partial(self.request_config.open_menu, request)
         )
+        element.r_id = request['id']
         element.set_tooltip("Set to active request")
         self.requests_list.items.append(element)
         self.plugin.update_content(self.requests_list)
 
     def delete_request(self, element):
-        request = self.settings.requests[element.name]
+        request = self.settings.requests.get(element.r_id)
         if self.plugin.make_request.request is request:
             self.plugin.make_request.request = None
             self.plugin.make_request.show_request()
-        return self.settings.delete_request(element.name)
+        return self.settings.delete_request(element.r_id)
 
     def request_renamed(self, request, element, new_name):
         return self.settings.rename_request(request, new_name)
@@ -61,13 +61,14 @@ class RequestsMenu():
     def set_active_request(self, list_element, toggled):
         for item in self.requests_list.items:
                 item.set_use_externally(item is list_element and not toggled, update=False)
-        self.plugin.make_request.request = self.settings.requests[list_element.name] if toggled else None
+        self.plugin.make_request.request = self.settings.requests[list_element.r_id] if toggled else None
         self.plugin.make_request.show_request()
         return True
 
     def refresh_requests(self):
         self.requests_list.items = []
-        for name, request in self.settings.requests.items():
+        for r_id, request in self.settings.requests.items():
+            name = request['name']
             element = ListElement(
             self.plugin,
             self.requests_list,
@@ -79,7 +80,8 @@ class RequestsMenu():
             external_toggle=self.set_active_request,
             config_opened=partial(self.request_config.open_menu, request)
             )
+            element.r_id = r_id
             element.set_tooltip("Set to active request")
-            if request is self.plugin.make_request.request:
+            if request['id'] is self.plugin.make_request.request['id']:
                 element.set_use_externally(True)
             self.requests_list.items.append(element)
