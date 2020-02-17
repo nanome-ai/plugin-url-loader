@@ -5,7 +5,7 @@ import nanome
 from nanome.util import Logs
 
 from ..components import ListElement
-from . import RequestConfigurationMenu
+from ..menus.RequestConfigurationMenu import RequestConfigurationMenu
 
 MENU_PATH = os.path.join(os.path.dirname(__file__), "json", "Requests.json")
 
@@ -50,9 +50,9 @@ class RequestsMenu():
 
     def delete_request(self, element):
         request = self.settings.requests[element.name]
-        if self.plugin.request is request:
-            self.plugin.request = None
-            self.plugin.show_request()
+        if self.plugin.make_request.request is request:
+            self.plugin.make_request.request = None
+            self.plugin.make_request.show_request()
         return self.settings.delete_request(element.name)
 
     def request_renamed(self, request, element, new_name):
@@ -61,8 +61,8 @@ class RequestsMenu():
     def set_active_request(self, list_element, toggled):
         for item in self.requests_list.items:
                 item.set_use_externally(item is list_element and not toggled, update=False)
-        self.plugin.request = self.settings.requests[list_element.name] if toggled else None
-        self.plugin.show_request()
+        self.plugin.make_request.request = self.settings.requests[list_element.name] if toggled else None
+        self.plugin.make_request.show_request()
         return True
 
     def refresh_requests(self):
@@ -80,6 +80,6 @@ class RequestsMenu():
             config_opened=partial(self.request_config.open_menu, request)
             )
             element.set_tooltip("Set to active request")
-            if self.plugin.request is request:
+            if request is self.plugin.make_request.request:
                 element.set_use_externally(True)
             self.requests_list.items.append(element)

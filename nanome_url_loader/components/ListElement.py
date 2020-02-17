@@ -11,7 +11,6 @@ JSON_PATH = os.path.join(BASE_PATH, 'json', 'ListElement2.json')
 IMG_RENAME_PATH = os.path.join(BASE_PATH, '..', 'icons', 'rename.png')
 IMG_CONFIG_PATH = os.path.join(BASE_PATH, '..', 'icons', 'config.png')
 IMG_CHECK_PATH = os.path.join(BASE_PATH, '..', 'icons', 'check.png')
-IMG_HECK_PATH  = os.path.join(BASE_PATH, '..', 'icons', 'heck.png')
 IMG_UNCHECK_PATH = os.path.join(BASE_PATH, '..', 'icons', 'uncheck.png')
 
 class ResourceDisplayType(IntEnum):
@@ -59,7 +58,6 @@ class ListElement(nanome.ui.LayoutNode):
 
         self.ln_use_externally    = ln.find_node("Use Externally")
         self.ln_use_externally.find_node("Image").add_new_image(IMG_UNCHECK_PATH)
-        self.ln_use_externally.get_content().outline.active = False
         self.ln_use_externally.get_content().register_pressed_callback(self.toggle_use_externally)
 
         self.set_tooltip("Override resource data in request")
@@ -84,7 +82,7 @@ class ListElement(nanome.ui.LayoutNode):
 
     def toggle_rename(self, button):
         button.selected = not button.selected
-        self.ln_rename.find_node("Image").add_new_image(IMG_HECK_PATH if button.selected else IMG_RENAME_PATH)
+        self.ln_rename.find_node("Image").add_new_image(IMG_CHECK_PATH if button.selected else IMG_RENAME_PATH)
         if button.selected:
             name = self.ln_name.get_content().text_value
             text_input = self.ln_name.add_new_text_input()
@@ -123,7 +121,7 @@ class ListElement(nanome.ui.LayoutNode):
                 text_input = self.ln_resource.add_new_text_input()
                 text_input.max_length = 0
                 text_input.input_text = self.resource_value
-                text_input.placeholder_text = "resource.url/{request_field}"
+                text_input.placeholder_text = "resource.url/{{request_field}}"
                 text_input.register_changed_callback(self.reresourced_from_input)
                 text_input.register_submitted_callback(self.reresourced_from_input)
 

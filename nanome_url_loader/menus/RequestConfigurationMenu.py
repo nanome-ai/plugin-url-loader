@@ -5,7 +5,7 @@ import nanome
 from nanome.util import Logs
 
 from ..components import ListElement, ResourceDisplayType
-from .ResourceConfigurationMenu import ResourceConfigurationMenu
+from ..menus import ResourceConfigurationMenu
 
 MENU_PATH = os.path.join(os.path.dirname(__file__), "json", "RequestConfig.json")
 
@@ -36,6 +36,8 @@ class RequestConfigurationMenu():
     def refresh_resources(self):
         self.lst_all_steps.items = []
         if not self.resource and self.settings.resources:
+            print(f'{self.settings.resources}')
+            print(f'{self.settings.resource_names}')
             self.resource = self.settings.resources[self.settings.resource_names[-1]]
         for name, resource in self.settings.resources.items():
             pfb = nanome.ui.LayoutNode()
@@ -80,7 +82,7 @@ class RequestConfigurationMenu():
                 config_opened=open_config
             )
             el.set_top_panel_text(resource['name'])
-            el.set_resource_placeholder("Metadata source ($step_number)")
+            el.set_resource_placeholder("Metadata source ({{step1}})")
             el.set_tooltip('Override post data during request')
             self.lst_steps.items.append(el)
 
@@ -113,7 +115,7 @@ class RequestConfigurationMenu():
             config_closed=close_config
         )
         el.set_top_panel_text(resource_name)
-        el.set_resource_placeholder('Metadata source ($step_number)')
+        el.set_resource_placeholder('Metadata source ({{step1}})')
         el.set_tooltip('Override post data during request')
         self.lst_steps.items.append(el)
         self.plugin.update_content(self.lst_steps)
@@ -126,12 +128,8 @@ class RequestConfigurationMenu():
         return self.settings.rename_step(self.request['name'], step, new_name)
 
     def validate_new_resource(self, step, metadata_source_name):
-        step_index = self.plugin.request['steps'].index(step)
-        if metadata_source_name in self.plugin.field_names:
-            step['metadata_source'] = metadata_source_name
-            self.plugin.send_notification(nanome.util.enums.NotificationTypes.success, "Resource for step updated")
-            return True
-        elif metadata_source_name in [f'${i+1}' for i in range(0, step_index)]:
+        step_index = self.plugin.make_request.request['steps'].index(step)
+        if metadata_source_name in self.settings.variables:
             step['metadata_source'] = metadata_source_name
             self.plugin.send_notification(nanome.util.enums.NotificationTypes.success, "Resource for step updated")
             return True
@@ -154,7 +152,7 @@ class RequestConfigurationMenu():
 
     def toggle_use_data_in_request(self, step, element, use_data):
         step['override_data'] = not step['override_data']
-        self.plugin.show_request()
+        self.plugin.make_request.show_request()
         return True
 
     def refresh_steps(self):

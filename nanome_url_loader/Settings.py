@@ -1,7 +1,7 @@
 import re
 import json
 import os
-from functools import partial
+from functools import partial, reduce
 
 import nanome
 BASE_PATH = os.path.dirname(os.path.realpath(__file__))
@@ -14,7 +14,6 @@ class Settings():
     def __init__(self, plugin):
         self.__plugin = plugin
         self.__menu = nanome.ui.Menu.io.from_json(MENU_PATH)
-        self.__menu.register_closed_callback(plugin.open_menu)
 
         self.variables = {}
         self.resource_names = []
@@ -50,9 +49,9 @@ class Settings():
 
     def extract_variables(self, url):
         fields = []
-        for field in re.findall('{(.*?)}', url):
+        for field in re.findall('{{(.*?)}}', url):
             fields.append(field)
-            self.touch_variable(field)
+            self.touch_variables([field])
         return fields
 
     def touch_variables(self, var_names):
@@ -68,49 +67,83 @@ class Settings():
             self.touch_variables([name])
         return self.variables[name]
 
-    def get_variables(self, request):
-        for step in request['steps']:
-            for var_name in step['resource']['variables']:
-                yield var_name, self.get_variable(var_name)
-            if step['override_data']:
-                override_data_name = f"{request['name']} {step['name']} data"
-                yield override_data_name, self.get_variable(override_data_name)
+    def get_variables(self, r):
+        def req_var_generator(r):
+            for step in r['steps']:
+                for var_name in step['resource']['input variables']:
+                    yield var_name, self.get_variable(var_name)
+                if step['override_data']:
+                    override_data_name = f"{r['name']} {step['name']} data"
+                    yield override_data_name, self.get_variable(override_data_name)
+        def rsc_var_generator(r):
+            for r in r['input variables']:
+                yield r, self.variables.get(r, '')
+        if r.get('steps'):
+            return dict(req_var_generator(r))
+        else:
+            return dict(rsc_var_generator(r))
 
     def delete_variable(self, var_name):
         del self.variables[var_name]
 
     def add_resource(self, name, url, method, import_type=None, headers={'Content-Type':'text/plain'}, data=''):
         self.rsrc_i += 1
-        variables = self.extract_variables(url)
+        inputs = self.extract_variables(url)
         if name not in self.resource_names:
             self.resource_names.append(name)
             self.resources[name] = {
                 'name': name,
                 'url': url,
-                'variables': variables,
+                'input variables': inputs,
                 'method': method,
+                'import name': '',
                 'import type': import_type,
+                'header names': [], 
                 'headers': headers,
+                'output': "",
+                'output variables': {},
                 'data': data,
                 'references': {}
             }
         return self.resources[name]
 
-    def create_empty_resource():
+    def create_empty_resource(self):
         name = f'Resource {self.rsrc_i}'
         self.rsrc_i += 1
         self.resource_names.append(name)
         self.resources[name] = {
             'name': name,
             'url': '',
-            'variables': [],
+            'input variables': [],
             'method': 'get',
+            'import name': '',
             'import type': '.json',
+            'header names': [], 
             'headers': {'Content-Type':'text/plain'},
+            'output': "",
+            'output variables': {},
             'data': None,
             'references': {}
         }
         return self.resources[name]
+
+    def set_header(self, resource, index, new_name, value):
+        if index >= len(resource['header names']):
+            self.__plugin.send_notification(nanome.util.enums.NotificationTypes.error, "Header index out of bounds")
+            return
+        current_name = resource['header names'][index]
+        if new_name != current_name:
+            del resource['headers'][current_name]
+        resource['headers'][new_name] = value
+        resource['header names'][i] = new_name
+
+    def set_output(self, resource, output, override=True):
+        if not resource['output'] or override:
+            resource['output'] = output
+
+    def set_output_var(self, resource, var_name, var_path):
+        resource['output variables'] = {}
+        resource['output variables'][var_name] = var_path
 
     def delete_resource(self, resource):
         has_references = len(list(filter(lambda x: x > 0, [value for value in resource['references'].values()]))) > 0
@@ -130,9 +163,14 @@ class Settings():
         del self.resources[old_name]
         return True
 
-    def change_resource_url(self, resource, new_url):
-        resource['url'] = new_url
-        resource['variables'] = self.extract_variables(new_url)
+    def change_resource(self, resource, new_url='', new_headers={}, new_import_name='', new_data=''):
+        resource['url'] = new_url or resource['url']
+        resource['import name'] = new_import_name or resource['import name']
+        resource['data'] = new_data or resource['data']
+        resource['headers'].update(new_headers)
+        header_vals = ''.join(list(resource['headers'].values()))
+        all_news = resource['url']+header_vals+resource['import name']+resource['data']
+        resource['input variables'] = self.extract_variables(all_news)
         return True
 
     def add_request(self, name):
@@ -143,6 +181,12 @@ class Settings():
         else:
             self.__plugin.send_notification(nanome.util.enums.NotificationTypes.error, "Please choose a unique name")
             return False
+
+    def get_request(self, index):
+        if index < len(self.request_names)-1:
+            return self.requests[self.request_names[index]]
+        else:
+            return None
 
     def rename_request(self, request, new_name):
         old_name = request['name']

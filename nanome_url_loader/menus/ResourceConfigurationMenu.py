@@ -1,11 +1,12 @@
 import os
+import re
 from functools import partial
 
 import nanome
 from nanome.util import Logs
 
 from ..components import ListElement
-from .ResponseConfigurationMenu import ResponseConfigurationMenu
+from . import ResponseConfigurationMenu
 
 MENU_PATH = os.path.join(os.path.dirname(__file__), "json", "ResourceConfig.json")
 
@@ -23,15 +24,17 @@ class ResourceConfigurationMenu():
         self.headers_i = 1
 
         self.inp_resource_url = self.menu.root.find_node('URL Input').get_content()
-        self.inp_resource_url.register_changed_callback(self.update_resource_url)
+        self.inp_resource_url.register_changed_callback(self.resource_url_changed)
         self.ls_request_types = self.menu.root.find_node('Request Types').get_content()
         self.pfb_header = self.menu.root.find_node('Header Prefab')
         self.ls_headers = self.menu.root.find_node('Headers List').get_content()
         self.btn_response_config = self.menu.root.find_node('Configure Button').get_content()
         self.btn_response_config.register_pressed_callback(self.open_response_config)
         self.inp_import_name = self.menu.root.find_node('Import Name Input').get_content()
+        self.inp_import_name.register_changed_callback(self.import_name_changed)
         self.ls_import_types = self.menu.root.find_node('Import Type List').get_content()
         self.inp_post_data = self.menu.root.find_node('Data Input').get_content()
+        self.inp_post_data.register_changed_callback(self.data_changed)
         self.prepare_menu()
 
     def open_menu(self, resource):
@@ -66,11 +69,18 @@ class ResourceConfigurationMenu():
         self.inp_post_data.input_text = resource['data']
         self.inp_post_data.register_changed_callback(self.set_resource_default_data)
 
-    def update_resource_url(self, text_input):
-        self.settings.change_resource_url(self.resource, text_input.input_text)
-        if self.plugin.request:
-            if self.resource['references'].get(self.plugin.request['name']):
-                self.plugin.show_request()
+    def import_name_changed(self, text_input):
+        new_name = re.sub('([^0-9A-z-._~])', '', text_input.input_text)
+        self.settings.change_resource(self.resource, new_import_name=new_name)
+
+    def resource_url_changed(self, text_input):
+        self.settings.change_resource(self.resource, new_url=text_input.input_text)
+        if self.plugin.make_request.request:
+            if self.resource['references'].get(self.plugin.make_request.request['name']):
+                self.plugin.make_request.show_request()
+
+    def data_changed(self, text_input):
+        self.settings.change_resource(self.resource, new_data=text_input.input_text)
 
     def add_step_dependency(self, step_element, reset=False):
         if reset:
@@ -91,15 +101,15 @@ class ResourceConfigurationMenu():
 
     def set_headers(self, headers):
         self.ls_headers.items = []
-        for name, value in headers.items():
-            pfb = self.header_prefab(name, value)
+        for i, (name, value) in enumerate(headers.items()):
+            pfb = self.header_prefab(i, name, value)
             self.ls_headers.items.append(pfb)
         ln_new_header = nanome.ui.LayoutNode()
         btn = ln_new_header.add_new_button('New Header')
         btn.register_pressed_callback(self.new_header)
         self.ls_headers.items.append(ln_new_header)
 
-    def header_prefab(self, name, value):
+    def header_prefab(self, i, name, value):
         pfb = self.pfb_header.clone()
         ln_delete = pfb.find_node('Delete')
         ln_delete.get_content().element = pfb
@@ -107,8 +117,8 @@ class ResourceConfigurationMenu():
         value_input = pfb.find_node('Value').get_content()
         name_input.input_text = name
         value_input.input_text = value
-        name_input.register_changed_callback(partial(self.set_header, name_input, value_input))
-        value_input.register_changed_callback(partial(self.set_header, name_input, value_input))
+        name_input.register_changed_callback(partial(self.set_header, i, name_input, value_input))
+        value_input.register_changed_callback(partial(self.set_header, i, name_input, value_input))
         ln_delete.get_content().register_pressed_callback(self.delete_header)
         return pfb
 
@@ -126,9 +136,9 @@ class ResourceConfigurationMenu():
         self.ls_headers.items.remove(button.element)
         self.plugin.update_content(self.ls_headers)
 
-    def set_header(self, name_input, value_input, text_input):
+    def set_header(self, i, name_input, value_input, text_input):
         if name_input.input_text and value_input.input_text:
-            self.resource['headers'][name_input.input_text] = value_input.input_text
+            self.settings.set_header(i, name_input.input_text, value_input.input_text)
 
     def set_resource_method(self, button=None):
         if self.resource:

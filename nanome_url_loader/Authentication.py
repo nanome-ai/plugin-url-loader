@@ -43,7 +43,6 @@ class Authentication():
             credentials = {'isid': self.inp_username.input_text, 'password': self.inp_password.input_text }
             # TODO: Fill this in after email followup
             # result = self.session.get(url = auth_ur, headers={'Authorization': })
-            print(f'result: {result.text}')
             # if result.status_code == requests.codes.ok:
             if True:
                 self.__plugin.send_notification(nanome.util.enums.NotificationTypes.success, "Authenticated Successfully")

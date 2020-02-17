@@ -5,7 +5,7 @@ import nanome
 from nanome.util import Logs
 
 from ..components import ListElement, ResourceDisplayType
-from .ResourceConfigurationMenu import ResourceConfigurationMenu
+from ..menus import ResourceConfigurationMenu
 MENU_PATH = os.path.join(os.path.dirname(__file__), "json", "Resources.json")
 
 class ResourcesMenu():
@@ -24,7 +24,6 @@ class ResourcesMenu():
         self.add_post_resource = self.menu.root.find_node('Add Post Resource').get_content()
         self.add_post_resource.register_pressed_callback(partial(self.add_resource, 'post'))
 
-
     def open_menu(self):
         self.refresh_resources()
         self.menu.enabled = True
@@ -36,17 +35,16 @@ class ResourcesMenu():
     def rename_resource(self, resource, element, new_name):
         return self.settings.rename_resource(resource, new_name)
 
-    def change_resource_url(self, resource, new_url):
-        if self.settings.change_resource_url(resource, new_url):
-            if resource['references'].get(self.plugin.request.get('name')):
-                self.plugin.show_request()
+    def change_resource(self, resource, new_url):
+        if self.settings.change_resource(resource, new_url=new_url):
+            if resource['references'].get(self.plugin.make_request.request.get('name')):
+                self.plugin.make_request.show_request()
             return True
         return False
 
     def add_resource(self, method, button = None):
         name = f'Resource {self.rsrc_i}'
-        value = f'resource{self.rsrc_i}.url/'+'{RequestParameter}'
-        resource = self.settings.add_resource(name, value, method)
+        resource = self.settings.add_resource(name, '', method)
         self.rsrc_i += 1
         delete = partial(self.delete_resource, resource)
         open_config = partial(self.resource_config.open_menu, resource)
@@ -54,14 +52,14 @@ class ResourcesMenu():
             self.plugin,
             self.lst_resources,
             name,
-            value,
+            '',
             self.settings.resources,
             ResourceDisplayType.Mutable,
             False,
             self.resource_config,
             deleted=delete,
             renamed=partial(self.rename_resource, resource),
-            reresourced=partial(self.change_resource_url, resource),
+            reresourced=partial(self.change_resource, resource),
             config_opened=open_config
         )
         self.lst_resources.items.append(el)
@@ -82,7 +80,7 @@ class ResourcesMenu():
                 self.resource_config,
                 deleted=partial(self.delete_resource, resource),
                 renamed=partial(self.rename_resource, resource),
-                reresourced=partial(self.change_resource_url, resource),
+                reresourced=partial(self.change_resource, resource),
                 config_opened=partial(self.resource_config.open_menu, resource)
             )
             self.lst_resources.items.append(el)
