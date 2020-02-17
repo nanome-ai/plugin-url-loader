@@ -1,7 +1,12 @@
 import re
 import os
 import requests
+import tempfile
+import openbabel
 from functools import partial
+
+from rdkit import Chem
+from rdkit.Chem import AllChem
 
 import json
 import requests
@@ -10,6 +15,7 @@ import traceback
 
 import nanome
 from nanome.util import Logs
+from nanome.api.structure import Complex
 
 from . import ResourcesMenu
 from . import RequestsMenu
@@ -175,6 +181,12 @@ class MakeRequestMenu():
                 elif filetype == ".cif":
                     complex = nanome.structure.Complex.io.from_mmcif(path=file.name)
                     self.plugin.add_bonds([complex], partial(self.bonds_ready, name, metadata))
+                elif filetype == ".mol":
+                    complex = self.complexFromMol(contents)
+                    self.plugin.add_bonds([complex], partial(self.bonds_ready, name, metadata))
+                elif filetype == ".smi":
+                    complex = self.complexFromSMILES(contents)
+                    self.plugin.add_bonds([complex], partial(self.bonds_ready, name, metadata))
                 elif filetype == '.pdf':
                     self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"PDF support coming soon")
                     return
@@ -190,6 +202,29 @@ class MakeRequestMenu():
         except: # Making sure temp file gets deleted in case of problem
             self._loading = False
             Logs.error("Error while loading molecule:\n", traceback.format_exc())
+
+    def complexFromSMILES(smiles):
+        mol = Chem.MolFromSmiles(smiles)
+        AllChem.Compute2DCoords(mol)
+
+        with tempfile.TemporaryFile(mode='w+') as temp:
+            w = Chem.SDWriter(temp)
+            w.write(mol)
+            w.flush()
+
+            temp.seek(0)
+            return Complex.io.from_sdf(file=temp)
+
+    def complexFromMol(mol_contents):
+        obConversion = openbabel.OBConversion()
+        obConversion.SetInAndOutFormats("mol", "pdb")
+
+        mol = openbabel.OBMol()
+        obConversion.ReadString(mol, mol_contents)
+        with tempfile.TemporaryFile(mode='w+') as temp:
+            obConversion.WriteFile(mol, temp.name)
+            temp.seek(0)
+            return Complex.io.from_sdf(file=temp)
 
     def get_remarks(self, obj):
         dict_found = False

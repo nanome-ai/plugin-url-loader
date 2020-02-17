@@ -53,7 +53,7 @@ class ResourceConfigurationMenu():
             btn.register_pressed_callback(self.set_resource_method)
             self.ls_request_types.items.append(ln)
 
-        for import_type in ['.pdb', '.cif', '.sdf', '.pdf', '.nanome', '.json']:
+        for import_type in ['.pdb', '.cif', '.sdf', '.mol', '.smi', '.pdf', '.nanome', '.json']:
             ln = nanome.ui.LayoutNode()
             ln.name = import_type
             btn = ln.add_new_button(import_type)
