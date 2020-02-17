@@ -5,6 +5,7 @@ import nanome
 from nanome.util import Logs
 
 from ..components import ListElement
+from .ResponseConfigurationMenu import ResponseConfigurationMenu
 
 MENU_PATH = os.path.join(os.path.dirname(__file__), "json", "ResourceConfig.json")
 
@@ -12,6 +13,7 @@ class ResourceConfigurationMenu():
     def __init__(self, plugin, settings):
         self.plugin = plugin
         self.settings = settings
+        self.response_config = ResponseConfigurationMenu(plugin, settings)
         self.menu = nanome.ui.Menu.io.from_json(MENU_PATH)
         self.menu.index = 4
 
@@ -25,7 +27,10 @@ class ResourceConfigurationMenu():
         self.ls_request_types = self.menu.root.find_node('Request Types').get_content()
         self.pfb_header = self.menu.root.find_node('Header Prefab')
         self.ls_headers = self.menu.root.find_node('Headers List').get_content()
-        self.ls_import_types = self.menu.root.find_node('Import Types').get_content()
+        self.btn_response_config = self.menu.root.find_node('Configure Button').get_content()
+        self.btn_response_config.register_pressed_callback(self.open_response_config)
+        self.inp_import_name = self.menu.root.find_node('Import Name Input').get_content()
+        self.ls_import_types = self.menu.root.find_node('Import Type List').get_content()
         self.inp_post_data = self.menu.root.find_node('Data Input').get_content()
         self.prepare_menu()
 
@@ -33,6 +38,9 @@ class ResourceConfigurationMenu():
         self.menu.enabled = True
         self.set_resource(resource)
         self.plugin.update_menu(self.menu)
+
+    def open_response_config(self, button):
+        self.response_config.open_menu(self.resource)
 
     def prepare_menu(self):
         for method in ['get', 'post']:

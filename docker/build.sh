@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ENV=production
-IMAGE=url-loader
+IMAGE=urlloader
 REPO=441665557124.dkr.ecr.us-west-1.amazonaws.com
 
 # Sign in to AWS

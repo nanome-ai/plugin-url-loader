@@ -19,6 +19,9 @@ MENU_PATH = os.path.join(os.path.dirname(__file__), 'json', 'MakeRequest.json')
 class MakeRequestMenu(nanome.PluginInstance):
     def __init__(self):
         self.session = requests.Session()
+        self.proxy_settings = {
+            'no': 'pass'
+        }
         self.settings = Settings(self)
         self.menu = nanome.ui.Menu.io.from_json(MENU_PATH)
         self.menu.index = 0
@@ -63,7 +66,7 @@ class MakeRequestMenu(nanome.PluginInstance):
             self.update_menu(self.menu)
             return
 
-        self.field_names = self.settings.request_fields(self.request)
+        self.field_names = self.settings.get_variables(self.request)
         self.field_values = {name:'' for name in self.field_names}
         for field_name in self.field_names:
             field_value = self.field_values.get(field_name, '')
@@ -103,6 +106,35 @@ class MakeRequestMenu(nanome.PluginInstance):
         self.btn_load.unusable = not enabled
         self.update_content(self.btn_load)
 
+    def contextualize(self, variables, contexts):
+        # construct headers, data and metadata_source from fields and step results
+        for variable in variables:
+            for context in contexts:
+                for name, value in context.items():
+                    variable = variable.replace('{'+name+'}', value)
+        return variables
+
+    def get_response(self, resource, contexts, data=None):
+        variables = resource['variables']
+        load_url = resource['url']
+        method = resource['method'].lower()
+        headers = resource['headers']
+        data = data or resource['data']
+
+        contexts = [self.field_values, results]
+        load_url = self.contextualize(load_url, contexts)
+        headers = self.contextualize(headers, contexts)
+        data = self.contextualize(data, contexts)
+
+        if method == 'get':
+            print(f'load_url: {load_url}')
+            response = self.session.get(load_url, headers=headers, proxy=self.proxy_settings)
+        elif method == 'post':
+            if 'Content-Type' not in headers:
+                headers['Content-Type'] = 'text/plain'
+            response = self.session.post(load_url, headers=headers, data=data.encode('utf-8'), proxy=self.proxy_settings)
+        return response
+    
     def load_request(self, button=None):
         if not self.request:
             self.send_notification(nanome.util.enums.NotificationTypes.message, "Please select a request")
@@ -112,48 +144,19 @@ class MakeRequestMenu(nanome.PluginInstance):
             self.clean_field(name)
 
         self.set_load_enabled(False)
-
         results = {}
-        for step in self.request['steps']:
+        for i, step in enumerate(self.request['steps']):
             resource = step['resource']
-            variables, load_url = resource['variables'], resource['url']
-            method, import_type = resource['method'].lower(), resource['import type']
-            headers, data = resource['headers'], resource['data']
+            import_type = resource['import type']
             metadata = step['metadata_source']
-
+            data = resource['data']
             # override data if necessary
             data_override_field_name = f"{self.request['name']} {step['name']} data"
             if step['override_data']:
                 data = self.field_values[data_override_field_name]
-
-            # construct headers, data and metadata_source from fields and step results
-            for name, value in self.field_values.items():
-                load_url = load_url.replace('{'+name+'}', value)
-                data = data.replace('{'+name+'}', value)
-                metadata = metadata.replace('{'+name+'}', value)
-                for key in headers:
-                    headers[key] = headers[key].replace('{'+name+'}', value)
-            for i, (name, value) in enumerate(results.items()):
-                load_url = load_url.replace(f'${i+1}', value)
-                data = data.replace(f'${i+1}', value)
-                metadata = metadata.replace(f'${i+1}', value)
-                for key in headers:
-                    headers[key] = headers[key].replace(f'${i+1}', value)
-
-            if method == 'get':
-                print(f'load_url: {load_url}')
-                response = self.session.get(load_url, headers=headers)
-            elif method == 'post':
-                if 'Content-Type' not in headers:
-                    headers['Content-Type'] = 'text/plain'
-                response = self.session.post(load_url, headers=headers, data=data.encode('utf-8'))
-
-            # import to nanome if necessary
-            if import_type:
-                self.import_to_nanome(self.field_values[last_var], import_type, response.text, metadata)
-            # save step result
-            results[step['name']] = response.text
-
+            response = self.get_response(resource, [self.field_values, results], data)
+            if import_type: self.import_to_nanome(self.field_values[last_var], import_type, response.text, metadata)
+            results[f'${i}'] = response.text
         self.set_load_enabled(True)
 
     def import_to_nanome(self, name, filetype, contents, metadata):

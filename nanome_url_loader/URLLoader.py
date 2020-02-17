@@ -72,7 +72,7 @@ class URLLoader(nanome.PluginInstance):
 
     def set_file_type(self, filetype, update=False, button=None):
         self.__filetype = filetype
-        self.__settings.set_extension(EXTENSIONS[filetype])
+        # self.__settings.set_extension(EXTENSIONS[filetype])
 
         for ln_btn in self.__type_selector.get_children():
             btn = ln_btn.get_content()

@@ -13,60 +13,75 @@ class Settings():
 
     def __init__(self, plugin):
         self.__plugin = plugin
+        self.__menu = nanome.ui.Menu.io.from_json(MENU_PATH)
+        self.__menu.register_closed_callback(plugin.open_menu)
+
+        self.variables = {}
         self.resource_names = []
         self.resources = {}
         self.rsrc_i = 1
         self.request_names = []
         self.requests = {}
-
-        self.add_resource('Structure', 'https://files.rcsb.org/download/{MoleculeCode}.pdb', 'get', None, {'Content-Type': 'text/plain'}, '')
-        self.add_request('Get Structure')
-        self.add_step('Get Structure', 'Step 1', 'Structure')
+        self.__settings = {}
 
         self.__settings_path = os.path.normpath(os.path.join(plugin.plugin_files_path, 'url-loader', 'settings.json'))
-        print(self.__settings_path)
+        print(f'settings: {self.__settings_path}')
         if not os.path.exists(os.path.dirname(self.__settings_path)):
             os.makedirs(os.path.dirname(self.__settings_path))
-
-        self.__settings = {'resource names': self.resource_names, 'resources': self.resources, 'resource i': self.rsrc_i, 'requests': self.requests, 'request names': self.request_names}
-
-        self.__menu = nanome.ui.Menu.io.from_json(MENU_PATH)
-        self.__menu.register_closed_callback(plugin.open_menu)
-
         self.load_settings()
 
-    def save_settings(self, menu=None):
-        with open(self.__settings_path, 'w') as settings:
-            self.__settings =  {'resource names': self.resource_names, 'resources': self.resources, 'resource i': self.rsrc_i, 'requests': self.requests, 'request names': self.request_names}
-            json.dump(self.__settings, settings)
-
-        self.__plugin.send_notification(nanome.util.enums.NotificationTypes.success, "Settings saved.")
+    def generate_settings(self):
+        for setting_name in ['variables', 'resource_names', 'resources', 'rsrc_i', 'request_names', 'requests']:
+            yield setting_name, getattr(self, setting_name)
 
     def load_settings(self, update=False):
         if os.path.exists(self.__settings_path):
-            with open(self.__settings_path, 'r') as file_settings:
-                settings = json.load(file_settings)
-                self.resource_names = settings['resource names']
-                self.resources = settings['resources']
-                self.rsrc_i = settings['resource i']
-                self.request_names = settings['request names']
-                self.requests = settings['requests']
-
+            with open(self.__settings_path, 'r') as settings_file:
+                settings = json.load(settings_file)
+                for key, value in settings.items():
+                    setattr(self, key, value)
         if update:
             self.__plugin.update_menu(self.__menu)
 
-    def set_extension(self, ext):
-        self.structure_url = re.sub('\.(cif|pdb|sdf)', f'.{ext}', self.structure_url)
+    def save_settings(self, menu=None):
+        with open(self.__settings_path, 'w') as settings_file:
+            json.dump(dict(self.generate_settings()), settings_file)
+        self.__plugin.send_notification(nanome.util.enums.NotificationTypes.success, "Settings saved.")
 
-    def extract_vars(self, url):
+    def extract_variables(self, url):
         fields = []
         for field in re.findall('{(.*?)}', url):
             fields.append(field)
+            self.touch_variable(field)
         return fields
+
+    def touch_variables(self, var_names):
+        for var_name in var_names:
+            if var_name not in self.variables:
+                self.variables[var_name] = ''
+
+    def set_variable(self, name, value):
+        self.variables[name] = value
+
+    def get_variable(self, name):
+        if name not in self.variables:
+            self.touch_variables([name])
+        return self.variables[name]
+
+    def get_variables(self, request):
+        for step in request['steps']:
+            for var_name in step['resource']['variables']:
+                yield var_name, self.get_variable(var_name)
+            if step['override_data']:
+                override_data_name = f"{request['name']} {step['name']} data"
+                yield override_data_name, self.get_variable(override_data_name)
+
+    def delete_variable(self, var_name):
+        del self.variables[var_name]
 
     def add_resource(self, name, url, method, import_type=None, headers={'Content-Type':'text/plain'}, data=''):
         self.rsrc_i += 1
-        variables = self.extract_vars(url)
+        variables = self.extract_variables(url)
         if name not in self.resource_names:
             self.resource_names.append(name)
             self.resources[name] = {
@@ -117,7 +132,7 @@ class Settings():
 
     def change_resource_url(self, resource, new_url):
         resource['url'] = new_url
-        resource['variables'] = self.extract_vars(new_url)
+        resource['variables'] = self.extract_variables(new_url)
         return True
 
     def add_request(self, name):
@@ -185,12 +200,3 @@ class Settings():
         del request['step names'][name]
         del request['steps'][step_index]
         return True
-
-    def request_fields(self, request):
-        fields = []
-        for step in request['steps']:
-            for variable in step['resource']['variables']:
-                fields.append(variable)
-            if step['override_data']:
-                fields.append(f"{request['name']} {step['name']} data")
-        return set(fields)
