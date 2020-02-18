@@ -64,7 +64,8 @@ class ResourcesMenu():
 
     def refresh_resources(self):
         self.lst_resources.items = []
-        for name, resource in self.settings.resources.items():
+        for r_id, resource in self.settings.resources.items():
+            name = resource['name']
             el = ListElement(
                 self.plugin,
                 self.lst_resources,
