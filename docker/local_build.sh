@@ -1,1 +1,0 @@
-docker build -f urlloader.Dockerfile -t urlloader:latest ..
