@@ -25,16 +25,18 @@ class ResourceConfigurationMenu():
 
         self.inp_resource_url = self.menu.root.find_node('URL Input').get_content()
         self.inp_resource_url.register_changed_callback(self.resource_url_changed)
-        self.ls_request_types = self.menu.root.find_node('Request Types').get_content()
+        self.ls_request_types = self.menu.root.find_node('Request Methods').get_content()
         self.pfb_header = self.menu.root.find_node('Header Prefab')
         self.ls_headers = self.menu.root.find_node('Headers List').get_content()
-        self.btn_response_config = self.menu.root.find_node('Configure Button').get_content()
-        self.btn_response_config.register_pressed_callback(self.open_response_config)
+        self.inp_post_data = self.menu.root.find_node('Data Input').get_content()
+        self.inp_post_data.register_changed_callback(self.data_changed)
+        self.inp_import_content = self.menu.root.find_node('Import Content Input').get_content()
+        self.inp_import_content.register_changed_callback(self.import_content_changed)
         self.inp_import_name = self.menu.root.find_node('Import Name Input').get_content()
         self.inp_import_name.register_changed_callback(self.import_name_changed)
         self.ls_import_types = self.menu.root.find_node('Import Type List').get_content()
-        self.inp_post_data = self.menu.root.find_node('Data Input').get_content()
-        self.inp_post_data.register_changed_callback(self.data_changed)
+        self.btn_response_config = self.menu.root.find_node('Configure Button').get_content()
+        self.btn_response_config.register_pressed_callback(self.open_response_config)
         self.prepare_menu()
 
     def open_menu(self, resource):
@@ -63,24 +65,32 @@ class ResourceConfigurationMenu():
     def set_resource(self, resource):
         self.resource = resource
         self.inp_resource_url.input_text = resource['url']
+        self.inp_import_name.input_text = resource['import name']
         self.update_request_type()
         self.set_headers(resource['headers'])
         self.update_import_type()
         self.inp_post_data.input_text = resource['data']
-        self.inp_post_data.register_changed_callback(self.set_resource_default_data)
-
-    def import_name_changed(self, text_input):
-        new_name = re.sub('([^0-9A-z-._~])', '', text_input.input_text)
-        self.settings.change_resource(self.resource, new_import_name=new_name)
 
     def resource_url_changed(self, text_input):
         self.settings.change_resource(self.resource, new_url=text_input.input_text)
-        if self.plugin.make_request.request:
-            if self.resource['references'].get(self.plugin.make_request.request['id']):
-                self.plugin.make_request.show_request()
+        self.update_other_menus()
 
     def data_changed(self, text_input):
         self.settings.change_resource(self.resource, new_data=text_input.input_text)
+        self.update_other_menus()
+
+    def import_content_changed(self, text_input):
+        self.settings.change_resource(self.resource, new_import_content=text_input.input_text)
+        self.update_other_menus()
+
+    def import_name_changed(self, text_input):
+        self.settings.change_resource(self.resource, new_import_name=text_input.input_text)
+        self.update_other_menus()
+
+    def update_other_menus(self):
+        if self.plugin.make_request.request:
+            if self.resource['references'].get(self.plugin.make_request.request['id']):
+                self.plugin.make_request.show_request()
 
     def add_step_dependency(self, step_element, reset=False):
         if reset:
@@ -101,15 +111,15 @@ class ResourceConfigurationMenu():
 
     def set_headers(self, headers):
         self.ls_headers.items = []
-        for i, (name, value) in enumerate(headers.items()):
-            pfb = self.header_prefab(i, name, value)
+        for (h_id, (name, value)) in headers.items():
+            pfb = self.header_prefab(h_id, name, value)
             self.ls_headers.items.append(pfb)
         ln_new_header = nanome.ui.LayoutNode()
         btn = ln_new_header.add_new_button('New Header')
         btn.register_pressed_callback(self.new_header)
         self.ls_headers.items.append(ln_new_header)
 
-    def header_prefab(self, i, name, value):
+    def header_prefab(self, header_id, name, value):
         pfb = self.pfb_header.clone()
         ln_delete = pfb.find_node('Delete')
         ln_delete.get_content().element = pfb
@@ -117,34 +127,36 @@ class ResourceConfigurationMenu():
         value_input = pfb.find_node('Value').get_content()
         name_input.input_text = name
         value_input.input_text = value
-        name_input.register_changed_callback(partial(self.set_header, i, name_input, value_input))
-        value_input.register_changed_callback(partial(self.set_header, i, name_input, value_input))
-        ln_delete.get_content().register_pressed_callback(self.delete_header)
+        name_input.register_changed_callback(partial(self.set_header, header_id, name_input, value_input))
+        value_input.register_changed_callback(partial(self.set_header, header_id, name_input, value_input))
+        ln_delete.get_content().register_pressed_callback(partial(self.delete_header, header_id))
         return pfb
 
     def new_header(self, button):
-        header_name = f"Header {self.headers_i}"
         self.headers_i += 1
-        self.resource['headers'][header_name] = ''
-        pfb = self.header_prefab(header_name, '')
-        self.ls_headers.items.insert(len(self.ls_headers.items)-1, pfb)
-        self.plugin.update_content(self.ls_headers)
+        header_name = f"Header {self.headers_i}"
+        header_id = self.settings.add_header(self.resource, header_name, '')
+        if header_id:
+            pfb = self.header_prefab(header_id, header_name, '')
+            self.ls_headers.items.insert(len(self.ls_headers.items)-1, pfb)
+            self.plugin.update_content(self.ls_headers)
 
-    def delete_header(self, button):
-        header_name = button.element.find_node('Name').get_content().input_text
-        self.resource['headers'].pop(header_name)
-        self.ls_headers.items.remove(button.element)
-        self.plugin.update_content(self.ls_headers)
-
-    def set_header(self, i, name_input, value_input, text_input):
+    def set_header(self, header_id, name_input, value_input, text_input):
         if name_input.input_text and value_input.input_text:
-            self.settings.set_header(i, name_input.input_text, value_input.input_text)
+            self.settings.set_header(self.resource, header_id, name_input.input_text, value_input.input_text)
+
+    def delete_header(self, header_id, button):
+        if self.settings.delete_header(self.resource, header_id):
+            self.ls_headers.items.remove(button.element)
+            self.plugin.update_content(self.ls_headers)
 
     def set_resource_method(self, button=None):
         if self.resource:
-            self.resource['method'] = button.text.value.idle
-            self.update_request_type()
-            self.plugin.update_content(button)
+            if self.resource['method'] != button.text.value.idle:
+                self.settings.set_output(self.resource, output="", output_headers={}, override=True)
+                self.resource['method'] = button.text.value.idle
+                self.update_request_type()
+                self.plugin.update_content(button)
         else:
             self.__plugin.send_notification(nanome.util.enums.NotificationTypes.error, "Resource undefined")
 
@@ -155,6 +167,3 @@ class ResourceConfigurationMenu():
             self.plugin.update_content(button)
         else:
             self.__plugin.send_notification(nanome.util.enums.NotificationTypes.error, "Resource undefined")
-
-    def set_resource_default_data(self, text_input=None):
-        self.resource['data'] = text_input.input_text

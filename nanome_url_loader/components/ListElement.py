@@ -118,12 +118,12 @@ class ListElement(nanome.ui.LayoutNode):
                 btn.register_pressed_callback(self.select_resource)
                 ls_resources.items.append(ln_rsrc)
         elif new_display_type is ResourceDisplayType.Mutable:
-                text_input = self.ln_resource.add_new_text_input()
-                text_input.max_length = 0
-                text_input.input_text = self.resource_value
-                text_input.placeholder_text = "resource.url/{{request_field}}"
-                text_input.register_changed_callback(self.reresourced_from_input)
-                text_input.register_submitted_callback(self.reresourced_from_input)
+            text_input = self.ln_resource.add_new_text_input()
+            text_input.max_length = 0
+            text_input.input_text = self.resource_value
+            text_input.placeholder_text = "resource.url/{{request_field}}"
+            text_input.register_changed_callback(self.reresourced_from_input)
+            text_input.register_submitted_callback(self.reresourced_from_input)
 
     def reresourced_from_input(self, text_input):
         self.resource_value = text_input.input_text

@@ -5,8 +5,6 @@ ENV ARGS=''
 COPY . /app
 WORKDIR /app
 
-RUN conda install -c openbabel openbabel
-RUN conda install -c bioconda pybel
 RUN conda install -c rdkit rdkit
 
 RUN pip install requests

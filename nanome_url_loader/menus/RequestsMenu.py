@@ -15,7 +15,7 @@ class RequestsMenu():
         self.settings = settings
         self.menu = nanome.ui.Menu.io.from_json(MENU_PATH)
         self.menu.index = 1
-        self.request_config = RequestConfigurationMenu(self.plugin, self.settings)
+        self.config = RequestConfigurationMenu(self.plugin, self.settings)
 
         self.req_i = 0
 
@@ -37,11 +37,11 @@ class RequestsMenu():
             self.requests_list,
             name,
             externally_used=True,
-            config=self.request_config,
+            config=self.config,
             deleted=self.delete_request,
             renamed=partial(self.request_renamed, request),
             external_toggle=self.set_active_request,
-            config_opened=partial(self.request_config.open_menu, request)
+            config_opened=partial(self.config.open_menu, request)
         )
         element.r_id = request['id']
         element.set_tooltip("Set to active request")
@@ -74,11 +74,11 @@ class RequestsMenu():
             self.requests_list,
             name,
             externally_used=True,
-            config=self.request_config,
+            config=self.config,
             deleted=self.delete_request,
             renamed=partial(self.request_renamed, request),
             external_toggle=self.set_active_request,
-            config_opened=partial(self.request_config.open_menu, request)
+            config_opened=partial(self.config.open_menu, request)
             )
             element.r_id = r_id
             element.set_tooltip("Set to active request")
