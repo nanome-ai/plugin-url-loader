@@ -31,17 +31,22 @@ class ResourcesMenu():
         return self.settings.delete_resource(resource)
 
     def rename_resource(self, resource, element, new_name):
-        return self.settings.rename_resource(resource, new_name)
+        if self.settings.rename_resource(resource, new_name):
+            self.plugin.requests.config.refresh_steps()
+            if resource['references'].get(self.plugin.make_request.request.get('id')):
+                self.plugin.make_request.show_request()
+            return True
+        return False
 
     def change_resource(self, resource, new_url):
         if self.settings.change_resource(resource, new_url=new_url):
-            if resource['references'].get(self.plugin.make_request.request.get('name')):
+            if resource['references'].get(self.plugin.make_request.request.get('id')):
                 self.plugin.make_request.show_request()
             return True
         return False
 
     def add_resource(self, method, button = None):
-        name = f'Resource {len(self.settings.resource_ids)}'
+        name = f'Resource {len(self.settings.resource_ids)+1}'
         resource = self.settings.add_resource(name, '', method)
         delete = partial(self.delete_resource, resource)
         open_config = partial(self.resource_config.open_menu, resource)

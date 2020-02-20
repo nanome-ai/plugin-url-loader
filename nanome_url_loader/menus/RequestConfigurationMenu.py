@@ -36,7 +36,7 @@ class RequestConfigurationMenu():
     def refresh_resources(self):
         self.lst_all_steps.items = []
         if not self.resource and self.settings.resources:
-            self.resource = self.settings.get_resource_by_index(-1)
+            self.resource = self.settings.get_resource(-1)
         for r_id, resource in self.settings.resources.items():
             name = resource['name']
             pfb = nanome.ui.LayoutNode()
@@ -62,7 +62,7 @@ class RequestConfigurationMenu():
         self.step_i = len(steps) + 1
         for step in steps:
             step_name = step['name']
-            resource = self.settings.get_resource_by_id(step['resource'])
+            resource = self.settings.get_resource(step['resource'])
             external_toggle = partial(self.toggle_use_data_in_request, step)
             open_config = partial(self.config_opened, resource)
             el = ListElement(
@@ -88,10 +88,10 @@ class RequestConfigurationMenu():
     def add_step(self, button):
         step_name = f'Step {self.step_i}'
         self.step_i += 1
-        if not len(self.settings.resource_names):
-            self.settings.create_empty_resource()
+        if not len(self.settings.resource_ids):
+            self.settings.add_resource()
         
-        resource = self.resource or self.settings.get_resource_by_index(-1) or {}
+        resource = self.resource or self.settings.get_resource(-1) or {}
         resource_id = resource.get('id', '')
         step = self.settings.add_step(self.request['id'], step_name, resource_id, '', False)
         if not step:
@@ -150,5 +150,6 @@ class RequestConfigurationMenu():
         return True
 
     def refresh_steps(self):
-        self.set_request(self.request)
-        self.plugin.update_content(self.lst_steps)
+        if self.request:
+            self.set_request(self.request)
+            self.plugin.update_content(self.lst_steps)

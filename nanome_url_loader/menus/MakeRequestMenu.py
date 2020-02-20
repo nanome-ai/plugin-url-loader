@@ -2,8 +2,7 @@ import re
 import os
 import requests
 import tempfile
-import openbabel
-from functools import partial
+from functools import partial, reduce
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -35,6 +34,7 @@ class MakeRequestMenu():
         self.field_values = {}
 
         self.request = None
+        self.tempdir = tempfile.TemporaryDirectory()
 
         self.__ln_fields = self.menu.root.find_node('Fields')
         self.ln_all_requests = self.menu.root.find_node('All Requests')
@@ -54,9 +54,9 @@ class MakeRequestMenu():
             return
 
         self.field_names = self.settings.get_variables(self.request)
-        self.field_values = {name:'' for name in self.field_names}
-        for field_name in self.field_names:
-            field_value = self.field_values.get(field_name, '')
+        self.field_values = {name:self.field_values.get(name, '') for name in self.field_names}
+        for field_name, default_value in self.field_names.items():
+            field_value = self.field_values[field_name]
             ln = nanome.ui.LayoutNode()
             ln.sizing_type = nanome.util.enums.SizingTypes.ratio
             ln.sizing_value = 0.25
@@ -73,7 +73,7 @@ class MakeRequestMenu():
             ln_field.set_padding(top=0.01, down=0.01, left=0.01, right=0.01)
             text_input = ln_field.add_new_text_input()
             text_input.input_text = field_value
-            text_input.placeholder_text = ''
+            text_input.placeholder_text = default_value
             text_input.max_length = 64
             text_input.register_changed_callback(partial(self.field_changed, field_name))
             text_input.register_submitted_callback(partial(self.clean_field, field_name, True))
@@ -95,37 +95,35 @@ class MakeRequestMenu():
         self.btn_load.unusable = not enabled
         self.plugin.update_content(self.btn_load)
 
-    def contextualize(self, variable, contexts):
-        for name in self.settings.extract_variables(variable):
-            value = self.settings.get_variable(name)
-            variable = variable.replace('{{'+name+'}}', value)
-        return variable
+    def contextualize(self, variable, contexts, left_wrapper="", right_wrapper=""):
+        cvar, _ = self.settings.try_contextualize(variable, contexts, add_to_context=True, default_value="[missing]", left_wrapper=left_wrapper, right_wrapper=right_wrapper)
+        return cvar
 
     def get_response(self, resource, contexts, data=None):
-        load_url = resource['url']
+        load_url = self.contextualize(variable=resource['url'], contexts=contexts)
         method = resource['method'].lower()
-        headers = resource['headers']
-        data = data or resource['data']
-        load_url = self.contextualize(variable=load_url, contexts=contexts)
-        print(f'contextualizing headers... {headers}')
-        headers = {name:self.contextualize(value, contexts) for name,value in headers.items()}
-        print('contextualizing data...')
-        data = self.contextualize(data, contexts=contexts)
+        headers = dict(resource['headers'].values())
+        headers = {self.contextualize(name, contexts):self.contextualize(value, contexts) for name,value in headers.items()}
+        data = self.contextualize(data or resource['data'], contexts=contexts)
         headers.update({'Content-Length': str(len(data))})
 
-        if method == 'get':
-            print(f'load_url: {load_url}')
-            response = self.session.get(load_url, proxies=self.proxies, verify=False)
-        elif method == 'post':
-            if 'Content-Type' not in headers:
-                headers['Content-Type'] = 'text/plain'
-            print(f'resource: {resource}')
-            response = self.session.post(load_url, data=data.encode('utf-8'), proxies=self.proxies, verify=False)
-        
-        out_name, out_value = self.set_response_vars(resource, response.text)
-        return response, (out_name, out_value)
+        try:
+            if method == 'get':
+                # TODO test to make sure headers work
+                response = self.session.get(load_url, headers=headers, proxies=self.proxies, verify=False)
+            elif method == 'post':
+                if 'Content-Type' not in headers:
+                    headers['Content-Type'] = 'text/plain'
+                response = self.session.post(load_url, data=json.loads(data), proxies=self.proxies, verify=False)
+        except:
+            exception = self.get_exception("An error occured while making the request")
+            self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"{exception}")
+            return None
+
+        return response
 
     def set_response_vars(self, resource, response_text):
+        json_response = None
         try:
             json_response = json.loads(response_text)
             for var_name, var_path in resource['output variables'].items():
@@ -135,8 +133,7 @@ class MakeRequestMenu():
                 self.settings.set_variable(var_name, var_value)
                 return var_name, var_value
         except:
-            self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"Cannot link resource output to {var_name}")
-            self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"Is the resource returning something other than JSON?")
+            self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"Cannot load response as JSON")
         return None, None
     
     def load_request(self, button=None):
@@ -150,7 +147,7 @@ class MakeRequestMenu():
         self.set_load_enabled(False)
         results = {}
         for i, step in enumerate(self.request['steps']):
-            resource = self.settings.get_resource_by_id(step['resource'])
+            resource = self.settings.get_resource(step['resource'])
             import_type = resource['import type']
             metadata = step['metadata_source']
             data = resource['data'].replace("\'", "\"")
@@ -159,17 +156,23 @@ class MakeRequestMenu():
             if step['override_data']:
                 data = self.field_values[data_override_field_name]
 
-            contexts = [self.settings.variables, self.field_values, results]
-            response, (out_var, out_value) = self.get_response(resource, contexts, data)
-            print(f'response: {response.text}')
-            import_name = self.contextualize(variable=resource['import name'], contexts=contexts)
-            if import_type: self.import_to_nanome(import_name, import_type, response.text, metadata)
-            results[f'step{i+1}'] = out_value or response.text
+            contexts = [self.field_values, results, self.settings.variables]
+            response = self.get_response(resource, contexts, data)
+            var_name, first_var = self.settings.get_output_variable(resource, 0)
+            if not response:
+                self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"Step {i} failed. Aborting {self.request['name']}")
+                self.set_load_enabled(True)
+                return
+            results[f'step{i+1}'] = json.dumps(first_var) or response.text
+            if import_type: 
+                import_name = self.contextualize(variable=resource['import name'], contexts=contexts)
+                self.import_to_nanome(import_name, import_type, first_var or response.text, metadata)
         self.set_load_enabled(True)
 
     def import_to_nanome(self, name, filetype, contents, metadata):
         try:
-            with tempfile.NamedTemporaryFile(mode='w+') as file:
+            file_path = os.path.join(self.tempdir.name, name+filetype)
+            with open(file_path, 'w+') as file:
                 file.write(contents)
                 file.seek(0)
                 if filetype == ".pdb":
@@ -182,16 +185,16 @@ class MakeRequestMenu():
                     complex = nanome.structure.Complex.io.from_mmcif(path=file.name)
                     self.plugin.add_bonds([complex], partial(self.bonds_ready, name, metadata))
                 elif filetype == ".mol":
-                    complex = self.complexFromMol(contents)
-                    self.plugin.add_bonds([complex], partial(self.bonds_ready, name, metadata))
+                    self.plugin.send_files_to_load([file.name])
+                    # self.plugin.add_bonds([complex], partial(self.bonds_ready, name, metadata))
                 elif filetype == ".smi":
                     complex = self.complexFromSMILES(contents)
                     self.plugin.add_bonds([complex], partial(self.bonds_ready, name, metadata))
                 elif filetype == '.pdf':
-                    self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"PDF support coming soon")
+                    self.plugin.send_files_to_load([file])
                     return
                 elif filetype == '.nanome':
-                    self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"Workspace support coming soon")
+                    self.plugin.send_files_to_load([file])
                     return
                     # load workspace
                 elif filetype == ".json":
@@ -201,28 +204,16 @@ class MakeRequestMenu():
                     Logs.error("Unknown filetype")
         except: # Making sure temp file gets deleted in case of problem
             self._loading = False
-            Logs.error("Error while loading molecule:\n", traceback.format_exc())
+            exception = self.get_exception("Error while parsing")
+            self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"Import failure. Have you configured the resource for {filetype} files?")
 
-    def complexFromSMILES(smiles):
+    def complexFromSMILES(self, smiles):
         mol = Chem.MolFromSmiles(smiles)
         AllChem.Compute2DCoords(mol)
-
         with tempfile.TemporaryFile(mode='w+') as temp:
             w = Chem.SDWriter(temp)
             w.write(mol)
             w.flush()
-
-            temp.seek(0)
-            return Complex.io.from_sdf(file=temp)
-
-    def complexFromMol(mol_contents):
-        obConversion = openbabel.OBConversion()
-        obConversion.SetInAndOutFormats("mol", "pdb")
-
-        mol = openbabel.OBMol()
-        obConversion.ReadString(mol, mol_contents)
-        with tempfile.TemporaryFile(mode='w+') as temp:
-            obConversion.WriteFile(mol, temp.name)
             temp.seek(0)
             return Complex.io.from_sdf(file=temp)
 
@@ -238,10 +229,9 @@ class MakeRequestMenu():
     def bonds_ready(self, name, metadata, complex_list):
         if len(complex_list):
             try:
-                complex_list[0]._remarks.update(self.get_remarks(json.loads(metadata)))
+                if metadata: complex_list[0]._remarks.update(self.get_remarks(json.loads(metadata)))
             except Exception as e:
-                print(traceback.format_exc())
-                self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"Metadata error")
+                self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"Metadata error. Have you configured the resource for metadata json?")
             self.plugin.add_dssp(complex_list, partial(self.complex_ready, name))
 
     def complex_ready(self, name, complex_list):
@@ -249,3 +239,11 @@ class MakeRequestMenu():
         self.plugin.send_notification(nanome.util.enums.NotificationTypes.success, f"Successfully loaded while parsing metadata")
         complex_list[0].molecular.name = name
         self.plugin.add_to_workspace(complex_list)
+
+    def get_exception(self, default_error, pattern=".*?([\w ]*Error:[\w ]*)"):
+        exc = traceback.format_exc()
+        exc_lines = re.findall(pattern, exc, re.MULTILINE)
+        if not len(exc_lines) or len(exc_lines[0]) < 15:
+            return default_error
+        else:
+            return exc_lines[0]
