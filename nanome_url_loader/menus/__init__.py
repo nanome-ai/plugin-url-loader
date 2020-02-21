@@ -4,3 +4,4 @@ from .RequestConfigurationMenu import RequestConfigurationMenu
 from .RequestsMenu import RequestsMenu
 from .ResourcesMenu import ResourcesMenu
 from .MakeRequestMenu import MakeRequestMenu
+from .VariablesMenu import VariablesMenu

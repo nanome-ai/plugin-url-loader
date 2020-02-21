@@ -17,10 +17,10 @@ class ResourcesMenu():
         self.menu.index = 3
 
         self.lst_resources = self.menu.root.find_node('Resources List').get_content()
-        self.add_get_resource = self.menu.root.find_node('Add Get Resource').get_content()
-        self.add_get_resource.register_pressed_callback(partial(self.add_resource, 'get'))
-        self.add_post_resource = self.menu.root.find_node('Add Post Resource').get_content()
-        self.add_post_resource.register_pressed_callback(partial(self.add_resource, 'post'))
+        self.edit_variables = self.menu.root.find_node('Edit Variables').get_content()
+        self.edit_variables.register_pressed_callback(self.plugin.variables_menu.open_menu)
+        self.btn_add_resource = self.menu.root.find_node('Add Resource').get_content()
+        self.btn_add_resource.register_pressed_callback(partial(self.add_resource, 'get'))
 
     def open_menu(self):
         self.refresh_resources()
@@ -38,7 +38,7 @@ class ResourcesMenu():
             return True
         return False
 
-    def change_resource(self, resource, new_url):
+    def change_resource(self, resource, list_element, new_url):
         if self.settings.change_resource(resource, new_url=new_url):
             if resource['references'].get(self.plugin.make_request.request.get('id')):
                 self.plugin.make_request.show_request()
@@ -58,10 +58,10 @@ class ResourcesMenu():
             self.settings.resources,
             ResourceDisplayType.Mutable,
             False,
-            self.resource_config,
+            None,
             deleted=delete,
             renamed=partial(self.rename_resource, resource),
-            reresourced=partial(self.change_resource, resource),
+            revalued=partial(self.change_resource, resource),
             config_opened=open_config
         )
         self.lst_resources.items.append(el)
@@ -82,7 +82,7 @@ class ResourcesMenu():
                 self.resource_config,
                 deleted=partial(self.delete_resource, resource),
                 renamed=partial(self.rename_resource, resource),
-                reresourced=partial(self.change_resource, resource),
+                revalued=partial(self.change_resource, resource),
                 config_opened=partial(self.resource_config.open_menu, resource)
             )
             self.lst_resources.items.append(el)

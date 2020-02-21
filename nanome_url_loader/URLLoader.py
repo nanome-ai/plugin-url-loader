@@ -13,6 +13,7 @@ from nanome.util import Logs
 
 from .Settings import Settings
 from .menus.MakeRequestMenu import MakeRequestMenu
+from .menus.VariablesMenu import VariablesMenu
 from .menus.ResourcesMenu import ResourcesMenu
 from .menus.RequestsMenu import RequestsMenu
 
@@ -25,8 +26,9 @@ class URLLoader(nanome.PluginInstance):
         }
         self.settings = Settings(self)
         self.make_request = MakeRequestMenu(self, self.settings)
+        self.variables_menu = VariablesMenu(self, self.settings)
         self.requests = RequestsMenu(self, self.settings)
-        self.resources = ResourcesMenu(self, self.settings)
+        self.resources_menu = ResourcesMenu(self, self.settings)
 
     def start(self):
         self.set_plugin_list_button(self.PluginListButtonType.run, 'Save')
@@ -44,7 +46,7 @@ class URLLoader(nanome.PluginInstance):
         self.settings.save_settings()
 
     def on_advanced_settings(self):
-        self.resources.open_menu()
+        self.resources_menu.open_menu()
 
 def main():
     plugin = nanome.Plugin('URL Loader', 'Load molecule from database', 'Loading', True)

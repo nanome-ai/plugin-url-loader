@@ -19,7 +19,7 @@ class ResourceDisplayType(IntEnum):
     Mutable = 2
 
 class ListElement(nanome.ui.LayoutNode):
-    def __init__(self, plugin, ui_list, name, resource_value = None, resource_source = None, resource_display_type = ResourceDisplayType.Fixed, externally_used = False, config = None, deleted = None, renamed = None, reresourced = None, external_toggle = None, config_opened = None, config_closed = None):
+    def __init__(self, plugin, ui_list, name, resource_value = None, resource_source = None, resource_display_type = ResourceDisplayType.Fixed, externally_used = False, config = None, deleted = None, renamed = None, revalued = None, external_toggle = None, config_opened = None, config_closed = None):
         nanome.ui.LayoutNode.__init__(self, name)
         ln = nanome.ui.LayoutNode.io.from_json(JSON_PATH)
         self.add_child(ln)
@@ -34,7 +34,7 @@ class ListElement(nanome.ui.LayoutNode):
 
         self.deleted = deleted
         self.renamed = renamed
-        self.reresourced = reresourced
+        self.revalued = revalued
         self.external_toggle = external_toggle
         self.config_opened = config_opened
         self.config_closed = config_closed
@@ -122,12 +122,12 @@ class ListElement(nanome.ui.LayoutNode):
             text_input.max_length = 0
             text_input.input_text = self.resource_value
             text_input.placeholder_text = "resource.url/{{request_field}}"
-            text_input.register_changed_callback(self.reresourced_from_input)
-            text_input.register_submitted_callback(self.reresourced_from_input)
+            text_input.register_changed_callback(self.revalued_from_input)
+            text_input.register_submitted_callback(self.revalued_from_input)
 
-    def reresourced_from_input(self, text_input):
+    def revalued_from_input(self, text_input):
         self.resource_value = text_input.input_text
-        self.reresourced(text_input.input_text)
+        if self.revalued: self.revalued(self, text_input.input_text)
 
     def select_resource(self, button):
         for ln in self.ln_resource.get_content().items:
@@ -171,6 +171,12 @@ class ListElement(nanome.ui.LayoutNode):
     def toggle_use_externally(self, button):
         if self.external_toggle and self.external_toggle(self, not button.selected):
             self.set_use_externally(not button.selected)
+
+    def set_renameable(self, is_renameable):
+        self.ln_rename.get_content().unusable = not is_renameable
+
+    def set_configurable(self, is_configurable):
+        self.ln_config.get_content().unusable = not is_configurable
 
     def set_externally_usable(self, used=True, update=True):
         self.ln_use_externally.enabled = used

@@ -20,18 +20,25 @@ class ResponseConfigurationMenu():
         self.settings = settings
         self.menu = nanome.ui.Menu.io.from_json(MENU_PATH)
         self.menu.index = 5
-        self.response_setup = nanome.ui.Menu(self.menu.index+1, 'Response Setup')
-        self.variable_confirm = nanome.ui.Menu(self.menu.index+2, 'Confirm Variable Creation')
+        self.response_setup = nanome.ui.Menu(6, 'Response Setup')
+        self.variable_confirm = nanome.ui.Menu(7, 'Confirm Variable Creation')
 
         self.resource = None
         self.response = None
 
         self.lst_response_elements = self.menu.root.find_node("Response Entry List").get_content()
         self.btn_refresh = self.menu.root.find_node("Refresh Button").get_content()
-        self.btn_refresh.register_pressed_callback(self.show_hierarchy)
+        self.btn_refresh.register_pressed_callback(self.refresh_response)
 
     def open_menu(self, resource=None):
         self.set_resource(resource)
+
+    def refresh_response(self, button=None):
+      self.settings.set_output(self.resource, output="", output_headers={}, override=True)
+      self.response = None
+      self.menu.enabled = False
+      self.plugin.update_menu(self.menu)
+      self.setup_variable_config()
 
     def set_resource(self, resource):
       self.response = None
@@ -51,9 +58,14 @@ class ResponseConfigurationMenu():
           if response:
             self.response = response
             self.settings.set_output(self.resource, self.response.text, dict(self.response.headers), override=False)
+            print("get_and_set_response::response:", response.text)
+            print("get_and_set_response::headers:", response.headers)
             response.raise_for_status()
+          else:
+            print("response is none:", response)
           return response
       except HTTPError as http_err:
+        print(response.text)
         self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"{response.text}")
         return None
     
@@ -61,11 +73,14 @@ class ResponseConfigurationMenu():
       return self.settings.get_response_object(self.resource)
 
     def show_hierarchy(self, button=None):
+      print('showing...')
       self.lst_response_elements.items = []
       self.get_and_set_response()
       response_object = self.settings.get_response_object(self.resource)
+      print(f'response object is {response_object}')
       if not response_object:
         response_type = self.settings.get_response_type(self.resource)
+        print(f'response type is {response_type}')
         self.plugin.send_notification(nanome.util.enums.NotificationTypes.error, f"{response_type} content not supported")
 
       self.response_setup.enabled = False
@@ -115,6 +130,7 @@ class ResponseConfigurationMenu():
       ln_var_name.forward_dist = 0.02
       inp_var_name = ln_var_name.add_new_text_input()
       inp_var_name.placeholder_text = 'variable name'
+      inp_var_name.max_length = 24
       inp_var_name.register_changed_callback(self.set_output_variable)
 
       ln_value = self.variable_confirm.root.create_child_node()

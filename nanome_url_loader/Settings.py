@@ -3,6 +3,7 @@ import json
 import xmltodict
 import os
 import uuid
+import traceback
 from functools import partial, reduce
 
 import nanome
@@ -130,8 +131,10 @@ class Settings():
             elif 'xml' in response_type:
                 coerced_response = xmltodict.parse(response_text)
             elif 'text' in response_type:
-                coerced_response = json.load({"result": response_text})
+                coerced_response = json.loads('{ "root": '+ response_text + '}')
         except:
+            exc = traceback.format_exc()
+            print(exc)
             return {}
         return coerced_response
 
@@ -193,11 +196,11 @@ class Settings():
         self.resources[resource['id']]['name'] = new_name
         return True
 
-    def change_resource(self, resource, new_url='', new_headers={}, new_import_content='', new_import_name='', new_data=''):
-        resource['url'] = new_url or resource['url']
-        resource['import content'] = new_import_content or resource['import content']
-        resource['import name'] = new_import_name or resource['import name']
-        resource['data'] = new_data or resource['data']
+    def change_resource(self, resource, new_url=None, new_headers={}, new_import_content=None, new_import_name=None, new_data=None):
+        resource['url'] = new_url if new_url is not None else resource['url']
+        resource['import content'] = new_import_content if new_import_content is not None else resource['import content']
+        resource['import name'] = new_import_name if new_import_name is not None else resource['import name']
+        resource['data'] = new_data if new_data is not None else resource['data']
         resource['headers'].update(new_headers)
         resource_fields = [resource['url'], resource['import content'], resource['import name'], resource['data']]
         resource_fields += [value[1] for value in resource['headers'].values()]

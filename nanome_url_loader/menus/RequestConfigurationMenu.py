@@ -76,7 +76,7 @@ class RequestConfigurationMenu():
                 self.menu,
                 deleted=self.delete_step,
                 renamed=partial(self.rename_step, step),
-                reresourced=partial(self.validate_new_resource, step),
+                revalued=partial(self.validate_new_resource, step),
                 external_toggle=external_toggle,
                 config_opened=open_config
             )
@@ -110,7 +110,7 @@ class RequestConfigurationMenu():
             self.menu,
             deleted=self.delete_step,
             renamed=partial(self.rename_step, step),
-            reresourced=partial(self.validate_new_resource, step),
+            revalued=partial(self.validate_new_resource, step),
             external_toggle=external_toggle,
             config_opened=open_config,
             config_closed=close_config
@@ -128,7 +128,7 @@ class RequestConfigurationMenu():
     def rename_step(self, step, element, new_name):
         return self.settings.rename_step(self.request['id'], step, new_name)
 
-    def validate_new_resource(self, step, metadata_source_name):
+    def validate_new_resource(self, step, list_element, metadata_source_name):
         step_index = self.plugin.make_request.request['steps'].index(step)
         if metadata_source_name in self.settings.variables:
             step['metadata_source'] = metadata_source_name
