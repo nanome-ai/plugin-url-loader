@@ -86,7 +86,7 @@ class ListElement(nanome.ui.LayoutNode):
         if button.selected:
             name = self.ln_name.get_content().text_value
             text_input = self.ln_name.add_new_text_input()
-            text_input.max_length = 16
+            text_input.max_length = 0
             text_input.input_text = name
             text_input.placeholder_text = "Name"
             text_input.register_submitted_callback(lambda inp: self.toggle_rename(button))
