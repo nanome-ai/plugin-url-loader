@@ -4,7 +4,7 @@ from functools import partial
 import nanome
 from nanome.util import Logs
 
-from ..components import ListElement, ResourceDisplayType
+from ..components import ListElement, ValueDisplayType
 from ..menus import ResourceConfigurationMenu
 MENU_PATH = os.path.join(os.path.dirname(__file__), "json", "Resources.json")
 
@@ -12,7 +12,7 @@ class ResourcesMenu():
     def __init__(self, plugin, settings):
         self.plugin = plugin
         self.settings = settings
-        self.resource_config = ResourceConfigurationMenu(plugin, settings)
+        self.config = ResourceConfigurationMenu(plugin, settings)
         self.menu = nanome.ui.Menu.io.from_json(MENU_PATH)
         self.menu.index = 3
 
@@ -21,6 +21,8 @@ class ResourcesMenu():
         self.edit_variables.register_pressed_callback(self.plugin.variables_menu.open_menu)
         self.btn_add_resource = self.menu.root.find_node('Add Resource').get_content()
         self.btn_add_resource.register_pressed_callback(partial(self.add_resource, 'get'))
+
+        self.resources = {}
 
     def open_menu(self):
         self.refresh_resources()
@@ -32,7 +34,7 @@ class ResourcesMenu():
 
     def rename_resource(self, resource, element, new_name):
         if self.settings.rename_resource(resource, new_name):
-            self.plugin.requests.config.refresh_steps()
+            # self.config.refresh_resource_name()
             if resource['references'].get(self.plugin.make_request.request.get('id')):
                 self.plugin.make_request.show_request()
             return True
@@ -40,6 +42,7 @@ class ResourcesMenu():
 
     def change_resource(self, resource, list_element, new_url):
         if self.settings.change_resource(resource, new_url=new_url):
+            self.config.refresh_resource_url()
             if resource['references'].get(self.plugin.make_request.request.get('id')):
                 self.plugin.make_request.show_request()
             return True
@@ -49,14 +52,14 @@ class ResourcesMenu():
         name = f'Resource {len(self.settings.resource_ids)+1}'
         resource = self.settings.add_resource(name, '', method)
         delete = partial(self.delete_resource, resource)
-        open_config = partial(self.resource_config.open_menu, resource)
+        open_config = partial(self.config.open_menu, resource)
         el = ListElement(
             self.plugin,
             self.lst_resources,
             name,
             '',
             self.settings.resources,
-            ResourceDisplayType.Mutable,
+            ValueDisplayType.Mutable,
             False,
             None,
             deleted=delete,
@@ -65,10 +68,12 @@ class ResourcesMenu():
             config_opened=open_config
         )
         self.lst_resources.items.append(el)
+        self.resources[resource['id']] = el
         self.plugin.update_content(self.lst_resources)
 
     def refresh_resources(self):
         self.lst_resources.items = []
+        self.resources = {}
         for r_id, resource in self.settings.resources.items():
             name = resource['name']
             el = ListElement(
@@ -77,12 +82,21 @@ class ResourcesMenu():
                 name,
                 resource['url'],
                 None,
-                ResourceDisplayType.Mutable,
+                ValueDisplayType.Mutable,
                 False,
-                self.resource_config,
+                self.config,
                 deleted=partial(self.delete_resource, resource),
                 renamed=partial(self.rename_resource, resource),
                 revalued=partial(self.change_resource, resource),
-                config_opened=partial(self.resource_config.open_menu, resource)
+                config_opened=partial(self.config.open_menu, resource)
             )
+            self.resources[resource['id']] = el
             self.lst_resources.items.append(el)
+
+    def refresh_resource_name(self, resource):
+        el = self.resources.get(resource['id'])
+        if el: el.update_name(resource['name'])
+
+    def refresh_resource_url(self, resource):
+        el = self.resources.get(resource['id'])
+        if el: el.update_value(resource['url'])

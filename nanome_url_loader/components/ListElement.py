@@ -13,13 +13,13 @@ IMG_CONFIG_PATH = os.path.join(BASE_PATH, '..', 'icons', 'config.png')
 IMG_CHECK_PATH = os.path.join(BASE_PATH, '..', 'icons', 'check.png')
 IMG_UNCHECK_PATH = os.path.join(BASE_PATH, '..', 'icons', 'uncheck.png')
 
-class ResourceDisplayType(IntEnum):
+class ValueDisplayType(IntEnum):
     Fixed = 0
     Selectable = 1
     Mutable = 2
 
 class ListElement(nanome.ui.LayoutNode):
-    def __init__(self, plugin, ui_list, name, resource_value = None, resource_source = None, resource_display_type = ResourceDisplayType.Fixed, externally_used = False, config = None, deleted = None, renamed = None, revalued = None, external_toggle = None, config_opened = None, config_closed = None):
+    def __init__(self, plugin, ui_list, name, value = None, value_source = None, value_display_type = ValueDisplayType.Fixed, externally_used = False, config = None, deleted = None, renamed = None, revalued = None, external_toggle = None, config_opened = None, config_closed = None):
         nanome.ui.LayoutNode.__init__(self, name)
         ln = nanome.ui.LayoutNode.io.from_json(JSON_PATH)
         self.add_child(ln)
@@ -28,9 +28,9 @@ class ListElement(nanome.ui.LayoutNode):
         self.plugin = plugin
         self.ui_list = ui_list
 
-        self.resource_value = resource_value
-        self.resource_display_type = resource_display_type
-        self.resource_source = resource_source
+        self.value = value
+        self.value_display_type = value_display_type
+        self.value_source = value_source
 
         self.deleted = deleted
         self.renamed = renamed
@@ -53,8 +53,8 @@ class ListElement(nanome.ui.LayoutNode):
         self.ln_rename.find_node("Image").add_new_image(IMG_RENAME_PATH)
         self.ln_rename.get_content().register_pressed_callback(self.toggle_rename)
 
-        self.ln_resource = ln.find_node("Resource")
-        self.ln_resource.add_new_label(resource_value or '').text_horizontal_align = nanome.util.enums.HorizAlignOptions.Middle
+        self.ln_value = ln.find_node("Resource")
+        self.ln_value.add_new_label(value or '').text_horizontal_align = nanome.util.enums.HorizAlignOptions.Middle
 
         self.ln_use_externally    = ln.find_node("Use Externally")
         self.ln_use_externally.find_node("Image").add_new_image(IMG_UNCHECK_PATH)
@@ -66,7 +66,7 @@ class ListElement(nanome.ui.LayoutNode):
         self.ln_config.find_node("Image").add_new_image(IMG_CONFIG_PATH)
         self.ln_config.get_content().register_pressed_callback(self.open_config)
 
-        self.configure_for_resource_type(resource_display_type)
+        self.configure_for_resource_type(value_display_type)
         self.set_externally_usable(externally_used)
         self.set_top_panel_text('')
 
@@ -102,53 +102,67 @@ class ListElement(nanome.ui.LayoutNode):
         self.plugin.update_content(self.ui_list)
 
     def configure_for_resource_type(self, new_display_type, source=None):
-        if self.resource_value is None:
+        if self.value is None:
             self.set_resource_visible(False)
             return
-        if self.resource_source is None:
-            self.resource_source = source
+        if self.value_source is None:
+            self.value_source = source
 
-        if new_display_type is ResourceDisplayType.Fixed:
-            self.ln_resource.add_new_label(self.resource_value).text_horizontal_align = nanome.util.enums.HorizAlignOptions.Middle
-        elif new_display_type is ResourceDisplayType.Selectable:
-            ls_resources = self.ln_resource.add_new_list()
-            for name, resource in self.resource_source.items():
+        if new_display_type is ValueDisplayType.Fixed:
+            self.ln_value.add_new_label(self.value).text_horizontal_align = nanome.util.enums.HorizAlignOptions.Middle
+        elif new_display_type is ValueDisplayType.Selectable:
+            ls_resources = self.ln_value.add_new_list()
+            for name, resource in self.value_source.items():
                 ln_rsrc = nanome.ui.LayoutNode()
                 btn = ln_rsrc.add_new_button(name)
                 btn.register_pressed_callback(self.select_resource)
                 ls_resources.items.append(ln_rsrc)
-        elif new_display_type is ResourceDisplayType.Mutable:
-            text_input = self.ln_resource.add_new_text_input()
+        elif new_display_type is ValueDisplayType.Mutable:
+            text_input = self.ln_value.add_new_text_input()
             text_input.max_length = 0
-            text_input.input_text = self.resource_value
+            text_input.input_text = self.value
             text_input.placeholder_text = "resource.url/{{request_field}}"
             text_input.register_changed_callback(self.revalued_from_input)
             text_input.register_submitted_callback(self.revalued_from_input)
 
+    def update_name(self, new_name):
+        content = self.ln_name.get_content()
+        if type(content) is nanome.ui.Label:
+            content.text_value = new_name
+        elif type(content) is nanome.ui.TextInput:
+            content.input_text  = new_name
+        self.plugin.update_content(content)
+
+    def update_value(self, new_value):
+        if self.value_display_type is ValueDisplayType.Mutable:
+            content = self.ln_value.get_content()
+            content.input_text = new_value
+            self.plugin.update_content(content)
+
     def revalued_from_input(self, text_input):
-        self.resource_value = text_input.input_text
+        self.value = text_input.input_text
         if self.revalued: self.revalued(self, text_input.input_text)
 
     def select_resource(self, button):
-        for ln in self.ln_resource.get_content().items:
+        for ln in self.ln_value.get_content().items:
             a_btn = ln.get_content()
             a_btn.selected = a_btn is button
-        self.resource_value = button.text_value
-        self.plugin.update_node(self.ln_resource)
+        self.value = button.text_value
+        self.plugin.update_node(self.ln_value)
 
-    def set_resource_value(self, text_input):
-        self.resource_value = text_input.input_text
+    def set_value(self, text_input):
+        self.value = text_input.input_text
 
     def set_resource_placeholder(self, placeholder_text):
-        if self.resource_display_type is ResourceDisplayType.Mutable:
-            self.ln_resource.get_content().placeholder_text = placeholder_text
-        self.plugin.update_node(self.ln_resource)
+        if self.value_display_type is ValueDisplayType.Mutable:
+            self.ln_value.get_content().placeholder_text = placeholder_text
+        self.plugin.update_node(self.ln_value)
 
     def set_resource_display(self, display_text):
-        if self.resource_display_type is ResourceDisplayType.Mutable:
-            self.ln_resource.get_content().input_text = display_text
-        self.resource_value = display_text
-        self.plugin.update_node(self.ln_resource)
+        if self.value_display_type is ValueDisplayType.Mutable:
+            self.ln_value.get_content().input_text = display_text
+        self.value = display_text
+        self.plugin.update_node(self.ln_value)
 
     def set_top_panel_text(self, text):
         self.lbl_resource.text_value = text
@@ -160,8 +174,8 @@ class ListElement(nanome.ui.LayoutNode):
         self.plugin.update_content(self.ui_list)
 
     def set_resource_visible(self, visible):
-        self.ln_resource.enabled = visible
-        self.plugin.update_node(self.ln_resource)
+        self.ln_value.enabled = visible
+        self.plugin.update_node(self.ln_value)
 
     def set_use_externally(self, use, update=True):
         self.ln_use_externally.find_node("Image").add_new_image(IMG_CHECK_PATH if use else IMG_UNCHECK_PATH)

@@ -1,1 +1,1 @@
-from .ListElement import ListElement, ResourceDisplayType
+from .ListElement import ListElement, ValueDisplayType

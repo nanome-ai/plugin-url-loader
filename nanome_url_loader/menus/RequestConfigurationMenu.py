@@ -4,7 +4,7 @@ from functools import partial
 import nanome
 from nanome.util import Logs
 
-from ..components import ListElement, ResourceDisplayType
+from ..components import ListElement, ValueDisplayType
 from ..menus import ResourceConfigurationMenu
 
 MENU_PATH = os.path.join(os.path.dirname(__file__), "json", "RequestConfig.json")
@@ -71,7 +71,7 @@ class RequestConfigurationMenu():
                 step_name,
                 '',
                 self.settings.resources,
-                ResourceDisplayType.Mutable,
+                ValueDisplayType.Mutable,
                 resource['method'] == 'post',
                 self.menu,
                 deleted=self.delete_step,
@@ -105,7 +105,7 @@ class RequestConfigurationMenu():
             step_name,
             '',
             self.settings.resources,
-            ResourceDisplayType.Mutable,
+            ValueDisplayType.Mutable,
             resource['method'] == 'post',
             self.menu,
             deleted=self.delete_step,

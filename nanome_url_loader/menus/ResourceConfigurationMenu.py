@@ -71,8 +71,13 @@ class ResourceConfigurationMenu():
         self.update_import_type()
         self.inp_post_data.input_text = resource['data']
 
+    def refresh_resource_url(self):
+        self.inp_resource_url.input_text = self.resource['url']
+        self.plugin.update_content(self.inp_resource_url)
+
     def resource_url_changed(self, text_input):
         self.settings.change_resource(self.resource, new_url=text_input.input_text)
+        self.plugin.resources_menu.refresh_resource_url(self.resource)
         self.update_other_menus()
 
     def data_changed(self, text_input):

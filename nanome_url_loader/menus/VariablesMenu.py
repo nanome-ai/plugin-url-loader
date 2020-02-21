@@ -1,7 +1,7 @@
 import nanome
 from functools import partial
 
-from ..components import ListElement, ResourceDisplayType
+from ..components import ListElement, ValueDisplayType
 
 class VariablesMenu():
     def __init__(self, plugin, settings):
@@ -49,7 +49,7 @@ class VariablesMenu():
                 var_name,
                 var_value,
                 None,
-                ResourceDisplayType.Mutable,
+                ValueDisplayType.Mutable,
                 False,
                 None,
                 deleted=self.delete_variable,
@@ -71,9 +71,9 @@ class VariablesMenu():
             var_name,
             '',
             None,
-            ResourceDisplayType.Mutable,
+            ValueDisplayType.Mutable,
             False,
-            self.resource_config,
+            None,
             deleted=delete,
             renamed=self.rename_variable,
             revalued=self.change_variable_value,
