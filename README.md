@@ -15,7 +15,7 @@ $ pip install nanome-url-loader
 To start the plugin:
 
 ```sh
-$ nanome-url-loader -a plugin_server_address
+$ nanome-url-loader -a <plugin_server_address>
 ```
 
 In Nanome:
@@ -23,6 +23,16 @@ In Nanome:
 - Activate Plugin
 - Click Run
 - Enter a molecular code (for instance "1YUI"), and click "Load"
+
+### Docker Usage
+
+To run in a Docker container:
+
+```sh
+$ cd docker
+$ ./build.sh
+$ ./deploy.sh -a <plugin_server_address>
+```
 
 ### License
 
