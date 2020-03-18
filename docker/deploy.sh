@@ -1,5 +1,6 @@
+#!/bin/bash
+
 if [ "$(docker ps -aq -f name=url-loader)" != "" ]; then
-    # cleanup
     echo "removing exited container"
     docker rm -f url-loader
 fi
