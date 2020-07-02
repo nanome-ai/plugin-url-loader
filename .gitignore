@@ -2,7 +2,6 @@ __pycache__
 /.vscode
 /build
 /dist
-docker/.cachebust
-nanome_url_loader.egg-info
-nanome
-.DS_Store
+/docker/.cachebust
+*.egg-info
+*.log
