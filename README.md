@@ -1,39 +1,39 @@
 # Nanome - URL Loader
 
-### An example Nanome plugin to load files from a URL
+A Nanome Plugin to load molecules from a URL.
 
-URL Loader will load a molecule from RCSB, by its molecular code
+## Dependencies
 
-### Installation
+[Docker](https://docs.docker.com/get-docker/)
 
-```sh
-$ pip install nanome-url-loader
-```
+## Usage
 
-### Usage
-
-To start the plugin:
+To run URL Loader in a Docker container:
 
 ```sh
-$ nanome-url-loader -a <plugin_server_address>
+$ cd docker
+$ ./build.sh
+$ ./deploy.sh -a <plugin_server_address> [optional args]
 ```
+
+---
 
 In Nanome:
 
 - Activate Plugin
 - Click Run
-- Enter a molecular code (for instance "1YUI"), and click "Load"
+- Enter a molecular code (e.g. "1YUI"), and click "Load"
 
-### Docker Usage
 
-To run in a Docker container:
+## Development
+
+To run URL Loader with autoreload:
 
 ```sh
-$ cd docker
-$ ./build.sh
-$ ./deploy.sh -a <plugin_server_address>
+$ python3 -m pip install -r requirements.txt
+$ python3 run.py -r -a <plugin_server_address> [optional args]
 ```
 
-### License
+## License
 
 MIT

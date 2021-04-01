@@ -203,7 +203,7 @@ class URLLoader(nanome.PluginInstance):
 def main():
     plugin = nanome.Plugin("URL Loader", "Load molecule from database", "Loading", True)
     plugin.set_plugin_class(URLLoader)
-    plugin.run('127.0.0.1', 8888)
+    plugin.run()
 
 if __name__ == "__main__":
     main()
